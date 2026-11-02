@@ -1,10 +1,12 @@
 import {CardsRepository} from "../db/repository/cards-repository";
+import {TransactionRepository} from "../db/repository/transaction-repository";
 import {createCardValidator, deleteCardValidator, updateCardValidator} from "./validators/card-validator";
 import {GenericError, NotFoundError, ForbiddenError} from "../errors";
 import {Cards} from "../db/models/cards";
 
 export class CardsService {
     private cardsRepository = new CardsRepository();
+    private transactionRepository = new TransactionRepository();
 
     async create(userId: number, data: unknown) {
         const {name, limit, cardType, cardFlag, expiresIn, lastFourDigits} =
@@ -72,6 +74,9 @@ export class CardsService {
         const card = await this.cardsRepository.loadById(id);
         if (!card) throw new NotFoundError('Card does not exist!');
         if (card.userId !== userId) throw new ForbiddenError();
+        if (await this.transactionRepository.existsWhere({cardId: id})) {
+            throw new GenericError('This card has transactions and cannot be deleted!');
+        }
 
         return await this.cardsRepository.delete(id);
     }

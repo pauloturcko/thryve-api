@@ -1,10 +1,12 @@
 import { BankAccount } from "../db/models/bank-account";
 import { BankAccountRepository } from "../db/repository/bank-account-repository";
+import { TransactionRepository } from "../db/repository/transaction-repository";
 import { ForbiddenError, GenericError, NotFoundError } from "../errors";
 import { createBankAccountValidator, deleteBankAccountValidator, updateBankAccountValidator } from "./validators/bank-account-validator";
 
 export class BankAccountService {
     private bankAccountRepository = new BankAccountRepository();
+    private transactionRepository = new TransactionRepository();
 
     async create(userId: number, data: unknown) {
         const {name, accountType, balance} = createBankAccountValidator.parse(data)
@@ -68,6 +70,9 @@ export class BankAccountService {
         const bankAccount = await this.bankAccountRepository.loadById(id)
         if(!bankAccount) throw new NotFoundError("Bank account does not exist!")
         if(bankAccount.userId !== userId) throw new ForbiddenError();
+        if(await this.transactionRepository.existsWhere({bankAccountId: id})) {
+            throw new GenericError("This bank account has transactions and cannot be deleted!")
+        }
 
         return await this.bankAccountRepository.delete(id)
     }

@@ -1,4 +1,4 @@
-import express from "express";
+import express, { NextFunction, Request, Response } from "express";
 import http from "http";
 import cors from "cors";
 import { appDataSource } from "./db/config/data-source";
@@ -11,6 +11,8 @@ import { cardRouter } from "./http/routes/card-routes";
 import { paymentMethodsRouter } from "./http/routes/payment-methods-routes";
 import { bankAccountRouter } from "./http/routes/bank-account-routes";
 import { categoryRouter } from "./http/routes/category-routes";
+import { incomeRouter } from "./http/routes/income-routes";
+import { expenseRouter } from "./http/routes/expense-routes";
 
 const app = express();
 const allowedOrigins = process.env.CLIENT_URL
@@ -41,6 +43,17 @@ app.use("/cards", cardRouter);
 app.use("/payment-method", paymentMethodsRouter);
 app.use("/bank-accounts", bankAccountRouter);
 app.use("/categories", categoryRouter);
+app.use("/incomes", incomeRouter);
+app.use("/expenses", expenseRouter);
+
+// JSON malformado falha no express.json(), antes de chegar ao controller e ao handleError.
+// Sem isso o Express responde uma página HTML em vez do formato de erro da API.
+app.use((error: unknown, req: Request, res: Response, next: NextFunction) => {
+  if (error instanceof SyntaxError && "type" in error && error.type === "entity.parse.failed") {
+    return res.status(400).json({ message: "Invalid JSON" });
+  }
+  return next(error);
+});
 
 appDataSource
   .initialize()

@@ -1,6 +1,6 @@
 import type {Response} from "express";
 import {ZodError} from "zod";
-import {ForbiddenError, GenericError, NotFoundError, UnauthorizedError} from "../../errors";
+import {BusinessRuleError, ForbiddenError, GenericError, NotFoundError, UnauthorizedError} from "../../errors";
 
 // Único ponto que traduz erro → status HTTP. Todo controller termina o catch chamando isso.
 export function handleError(res: Response, error: unknown) {
@@ -24,6 +24,10 @@ export function handleError(res: Response, error: unknown) {
 
     if (error instanceof NotFoundError) {
         return res.status(404).json({message: error.message});
+    }
+
+    if (error instanceof BusinessRuleError) {
+        return res.status(422).json({message: error.message});
     }
 
     if (error instanceof GenericError) {
