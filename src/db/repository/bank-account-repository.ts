@@ -1,4 +1,4 @@
-import { Repository } from "typeorm";
+import { EntityManager, Repository } from "typeorm";
 import { BankAccount } from "../models/bank-account";
 import { appDataSource } from "../config/data-source";
 import { CreateBankAccountDto, UpdateBankAccountDto } from "../DTO/bank-account-dto";
@@ -13,8 +13,8 @@ type UniqueBankAccount = {
 export class BankAccountRepository {
     private repository: Repository<BankAccount>
     
-    constructor() {
-        this.repository = appDataSource.getRepository(BankAccount)
+    constructor(manager: EntityManager = appDataSource.manager) {
+        this.repository = manager.getRepository(BankAccount)
     }
 
     async create(data: CreateBankAccountDto) {
@@ -45,5 +45,9 @@ export class BankAccountRepository {
 
     async delete(id: number): Promise<void> {
         await this.repository.delete({id})
+    }
+
+    async adjustBalance(id: number, delta: number): Promise<void> {
+        await this.repository.increment({id}, "balance", delta)
     }
 }
