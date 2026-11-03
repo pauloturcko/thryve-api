@@ -9,6 +9,10 @@ export const swaggerDocument = {
   },
   servers: [
     {
+      url: "https://apiwhaidata.pauloturcko.dev",
+      description: "Servidor de Produção",
+    },
+    {
       url: "http://localhost:3000",
       description: "Servidor Local de Desenvolvimento",
     },
