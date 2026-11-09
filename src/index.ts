@@ -15,18 +15,23 @@ import { incomeRouter } from "./http/routes/income-routes";
 import { expenseRouter } from "./http/routes/expense-routes";
 
 const app = express();
-const allowedOrigins = process.env.CLIENT_URL
-  ? process.env.CLIENT_URL.split(",")
-  : ["http://localhost:3000"];
+const normalizeOrigin = (origin: string) => origin.trim().replace(/\/+$/, "");
+
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://thryve.pauloturcko.dev",
+  ...(process.env.CLIENT_URL ?? "").split(","),
+]
+  .map(normalizeOrigin)
+  .filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
+      const isAllowed =
+        !origin || allowedOrigins.includes("*") || allowedOrigins.includes(normalizeOrigin(origin));
+      // Origem não permitida: responde sem headers CORS (o browser bloqueia), sem estourar 500.
+      callback(null, isAllowed);
     },
     credentials: true,
   })
