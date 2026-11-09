@@ -1,7 +1,9 @@
+name: thryve
+
 services:
   postgres:
     image: postgres:15
-    container_name: whai_data
+    container_name: thryve_db
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -13,3 +15,4 @@ services:
 
 volumes:
   postgres_data:
+    name: thryve_postgres_data
