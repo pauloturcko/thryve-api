@@ -1,4 +1,4 @@
-# Decisões de Arquitetura — WhaiData API
+# Decisões de Arquitetura — Thryve API
 
 Este documento existe pra registrar o **porquê** de decisões que não são óbvias só lendo o código. Não é uma spec completa da API (isso é o Swagger, em `/api-docs`) — é o histórico de raciocínio por trás de escolhas que, sem contexto, pareceriam arbitrárias ou até erradas.
 

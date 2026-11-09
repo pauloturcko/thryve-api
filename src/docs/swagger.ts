@@ -1,15 +1,15 @@
 export const swaggerDocument = {
   openapi: "3.0.0",
   info: {
-    title: "WhaiData API",
+    title: "Thryve API",
     version: "1.0.0",
     description:
-      "Documentação da API do WhaiData com autenticação e gerenciamento de cartões, contas bancárias, categorias e métodos de pagamento.\n\n" +
+      "Documentação da API do Thryve com autenticação e gerenciamento de cartões, contas bancárias, categorias e métodos de pagamento.\n\n" +
       "Todo erro responde `{ message }`. Erros de validação (400) trazem também `errors: [{ path, message }]`, um item por campo inválido.",
   },
   servers: [
     {
-      url: "https://apiwhaidata.pauloturcko.dev",
+      url: "https://apithryve.pauloturcko.dev",
       description: "Servidor de Produção",
     },
     {
