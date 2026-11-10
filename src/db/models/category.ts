@@ -3,7 +3,7 @@ import { Users } from "./users";
 import { CategoryTypeEnum } from "../enum/category-type-enum";
 
 @Entity('category')
-@Unique(["userId", "name"])
+@Unique("UQ_category_user_slug", ["userId", "slug"])
 export class Category {
     @PrimaryGeneratedColumn()
     id: number;
@@ -13,6 +13,9 @@ export class Category {
 
     @Column({type: "varchar"})
     name: string;
+
+    @Column({type: "varchar"})
+    slug: string;
 
     @Column({type: "varchar", length: 50})
     icon: string;

@@ -5,7 +5,7 @@ import { CreateCategoryDto, UpdateCategoryDto } from "../DTO/category-dto";
 
 type UniqueCategory = {
     userId: number,
-    name: string
+    slug: string
 }
 // TODO: Revisar todos os repositories e remover tipagens locais
 
@@ -20,11 +20,11 @@ export class CategoryRepository {
         return await this.repository.save(data)
     }
 
-    async findByUnique({userId, name}: UniqueCategory) {
+    async findByUnique({userId, slug}: UniqueCategory) {
         return await this.repository.findOne({
             where: {
                 userId,
-                name
+                slug
             }
         })
     }

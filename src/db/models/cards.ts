@@ -2,7 +2,7 @@ import {Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGenerate
 import {Users} from "./users";
 
 @Entity("cards")
-@Unique(["userId", "name", "lastFourDigits"])
+@Unique("UQ_cards_user_slug_last_four_digits", ["userId", "slug", "lastFourDigits"])
 export class Cards {
     @PrimaryGeneratedColumn()
     id: number;
@@ -13,8 +13,11 @@ export class Cards {
     @Column({type: "varchar"})
     name: string;
 
-    @Column({type: "numeric", precision: 12, scale: 2, default: 0})
-    limit: string;
+    @Column({type: "varchar"})
+    slug: string;
+
+    @Column({type: "numeric", precision: 12, scale: 2, nullable: true})
+    limit: string | null;
 
     @Column({name: "card_type", type: "int"})
     cardType: number;

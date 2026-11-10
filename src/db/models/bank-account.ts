@@ -1,7 +1,7 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 import { Users } from "./users";
 
-@Unique(["userId", "name", "accountType"])
+@Unique("UQ_bank_account_user_slug_account_type", ["userId", "slug", "accountType"])
 @Entity("bank_account")
 export class BankAccount {
 
@@ -13,6 +13,9 @@ export class BankAccount {
 
     @Column({type: "varchar"})
     name: string;
+
+    @Column({type: "varchar"})
+    slug: string;
 
     @Column({type: "int", name: "account_type"})
     accountType: number;

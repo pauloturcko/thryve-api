@@ -3,7 +3,10 @@ import { appDataSource } from "../db/config/data-source";
 import { BankAccount } from "../db/models/bank-account";
 import { Transaction } from "../db/models/transaction";
 import { CreateTransactionDto } from "../db/DTO/transaction-dto";
+import { PaymentMethods } from "../db/models/payment-methods";
+import { CardTypeEnum } from "../db/enum/card-type-enum";
 import { CategoryTypeEnum } from "../db/enum/category-type-enum";
+import { PaymentMethodEnum } from "../db/enum/payment-method-enum";
 import { TransactionStatusEnum } from "../db/enum/transaction-status-enum";
 import { TransactionTypeEnum } from "../db/enum/transaction-type-enum";
 import { BankAccountRepository } from "../db/repository/bank-account-repository";
@@ -145,7 +148,8 @@ export class TransactionService {
         await this.ensureUserHasAccount(userId);
         const account = await this.loadOwnedAccount(userId, parsed.bankAccountId);
         await this.ensureOwnedCategory(userId, parsed.categoryId, CategoryTypeEnum.expense);
-        await this.ensureValidPayment(userId, parsed.paymentMethodId, parsed.cardId ?? null);
+        const paymentMethod = await this.ensureValidPayment(userId, parsed.paymentMethodId, parsed.cardId ?? null);
+        if (parsed.installments) this.ensureInstallmentsAllowed(paymentMethod);
 
         const installments = parsed.installments ?? 1;
         const amounts = splitAmount(parsed.amount, installments);
@@ -205,7 +209,8 @@ export class TransactionService {
             await this.ensureOwnedCategory(userId, parsed.categoryId, CategoryTypeEnum.expense);
         }
         if ((parsed.paymentMethodId !== undefined || parsed.cardId !== undefined) && next.paymentMethodId) {
-            await this.ensureValidPayment(userId, next.paymentMethodId, next.cardId);
+            const paymentMethod = await this.ensureValidPayment(userId, next.paymentMethodId, next.cardId);
+            if (next.installmentTotal) this.ensureInstallmentsAllowed(paymentMethod);
         }
 
         await this.saveChange(userId, current, next, (repository) => repository.update(parsed));
@@ -255,20 +260,36 @@ export class TransactionService {
         }
     }
 
-    private async ensureValidPayment(userId: number, paymentMethodId: number, cardId: number | null): Promise<void> {
+    private async ensureValidPayment(userId: number, paymentMethodId: number, cardId: number | null): Promise<PaymentMethods> {
         const preference = await this.userPaymentPreferencesRepository.findByUserAndMethod(userId, paymentMethodId);
         if (!preference) throw new NotFoundError("Payment method not found");
         if (!preference.isActive) {
             throw new BusinessRuleError("Essa forma de pagamento está desativada nas suas configurações.");
         }
 
-        if (preference.paymentMethod.requiresCard && !cardId) {
+        const {paymentMethod} = preference;
+        if (paymentMethod.requiresCard && !cardId) {
             throw new BusinessRuleError("Informe o cartão para pagamentos no crédito ou no débito.");
         }
         if (cardId) {
             const card = await this.cardsRepository.loadById(cardId);
             if (!card) throw new NotFoundError("Card does not exist!");
             if (card.userId !== userId) throw new ForbiddenError();
+
+            if (paymentMethod.id === PaymentMethodEnum.creditCard && card.cardType === CardTypeEnum.debit) {
+                throw new BusinessRuleError("Esse cartão é só de débito e não pode ser usado no crédito.");
+            }
+            if (paymentMethod.id === PaymentMethodEnum.debitCard && card.cardType === CardTypeEnum.credit) {
+                throw new BusinessRuleError("Esse cartão é só de crédito e não pode ser usado no débito.");
+            }
+        }
+
+        return paymentMethod;
+    }
+
+    private ensureInstallmentsAllowed(paymentMethod: PaymentMethods): void {
+        if (paymentMethod.id !== PaymentMethodEnum.creditCard) {
+            throw new BusinessRuleError("Só é possível parcelar no cartão de crédito.");
         }
     }
 

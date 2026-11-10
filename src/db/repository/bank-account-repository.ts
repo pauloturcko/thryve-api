@@ -5,7 +5,7 @@ import { CreateBankAccountDto, UpdateBankAccountDto } from "../DTO/bank-account-
 
 type UniqueBankAccount = {
     userId: number,
-    name: string,
+    slug: string,
     accountType: number,
 }
 // TODO: Revisar todos os repositories e remover tipagens locais
@@ -21,11 +21,11 @@ export class BankAccountRepository {
         return await this.repository.save(data)
     }
 
-    async findByUnique({userId, name, accountType}: UniqueBankAccount) {
+    async findByUnique({userId, slug, accountType}: UniqueBankAccount) {
         return this.repository.findOne({
             where: {
                 userId,
-                name,
+                slug,
                 accountType
             }
         })

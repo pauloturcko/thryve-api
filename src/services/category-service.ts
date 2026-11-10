@@ -2,6 +2,7 @@ import { Category } from "../db/models/category";
 import { CategoryRepository } from "../db/repository/category-repository";
 import { TransactionRepository } from "../db/repository/transaction-repository";
 import { ForbiddenError, GenericError, NotFoundError } from "../errors";
+import { slugify } from "../utils/slugify";
 import { createCategoryValidator, deleteCategoryValidator, updateCategoryValidator } from "./validators/category-validator";
 
 export class CategoryService {
@@ -11,9 +12,9 @@ export class CategoryService {
     async create(userId: number, data: unknown) {
         const {name, icon, color, type} = createCategoryValidator.parse(data)
         
-        const normalizedName = name.trim().toLocaleLowerCase()
+        const slug = slugify(name)
 
-        const existingCategory = await this.categoryRepository.findByUnique({userId, name: normalizedName})
+        const existingCategory = await this.categoryRepository.findByUnique({userId, slug})
         
         if(existingCategory) {
             throw new GenericError("This category already exists!")
@@ -21,7 +22,8 @@ export class CategoryService {
 
         return await this.categoryRepository.create({
             userId,
-            name: normalizedName,
+            name,
+            slug,
             icon,
             color,
             type
@@ -39,18 +41,15 @@ export class CategoryService {
         if(!category) throw new NotFoundError("Category does not exist!")
         if(category.userId !== userId) throw new ForbiddenError();
 
-        if(parsedData.name) {
-            parsedData.name = parsedData.name.trim().toLocaleLowerCase();
-        }
-
         const updateCategoryData = {
             ...category,
-            ...parsedData
+            ...parsedData,
+            slug: slugify(parsedData.name ?? category.name)
         }
 
         const existingCategory = await this.categoryRepository.findByUnique({
             userId,
-            name: updateCategoryData.name
+            slug: updateCategoryData.slug
         })
 
         if(existingCategory && existingCategory.id !== category.id) {

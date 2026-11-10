@@ -17,7 +17,6 @@ export const swaggerDocument = {
       description: "Servidor Local de Desenvolvimento",
     },
   ],
-  // Configuração do botão "Authorize" para autenticação JWT Bearer Token
   components: {
     securitySchemes: {
       bearerAuth: {
@@ -28,10 +27,11 @@ export const swaggerDocument = {
       },
     },
     schemas: {
+
       // ===== USUÁRIOS & AUTH =====
       UserRegisterInput: {
         type: "object",
-        required: ["name", "email", "password"], // Define campos OBRIGATÓRIOS
+        required: ["name", "email", "password"],
         properties: {
           name: {
             type: "string",
@@ -145,7 +145,6 @@ export const swaggerDocument = {
           "name",
           "cardType",
           "cardFlag",
-          "limit",
           "expiresIn",
           "lastFourDigits",
         ],
@@ -169,7 +168,8 @@ export const swaggerDocument = {
           },
           limit: {
             type: "string",
-            description: "Limite do cartão (mínimo 100). Aceita '5000.00' ou formato BR '5.000,00'",
+            nullable: true,
+            description: "Limite do cartão (mínimo 100). Aceita '5000.00' ou formato BR '5.000,00'. Obrigatório para crédito (1) e crédito e débito (3). No débito (2) é ignorado e salvo como null",
             example: "5000.00",
           },
           expiresIn: {
@@ -186,7 +186,7 @@ export const swaggerDocument = {
       },
       CardUpdateInput: {
         type: "object",
-        required: ["id"], // Apenas o ID é obrigatório no update
+        required: ["id"],
         properties: {
           id: {
             type: "integer",
@@ -211,7 +211,8 @@ export const swaggerDocument = {
           },
           limit: {
             type: "string",
-            description: "Novo limite (Opcional)",
+            nullable: true,
+            description: "Novo limite (Opcional). Se o cartão ficar só débito, o limite é zerado para null. Se ficar com crédito, precisa ter limite",
             example: "6000.00",
           },
           expiresIn: {
@@ -263,7 +264,7 @@ export const swaggerDocument = {
       },
       BankAccountUpdateInput: {
         type: "object",
-        required: ["id"], // Apenas o ID é obrigatório no update
+        required: ["id"],
         properties: {
           id: {
             type: "integer",
@@ -330,7 +331,7 @@ export const swaggerDocument = {
       },
       CategoryUpdateInput: {
         type: "object",
-        required: ["id"], // Apenas o ID é obrigatório no update
+        required: ["id"],
         properties: {
           id: {
             type: "integer",
@@ -429,7 +430,7 @@ export const swaggerDocument = {
       },
       IncomeUpdateInput: {
         type: "object",
-        required: ["id"], // Apenas o ID é obrigatório no update
+        required: ["id"],
         properties: {
           id: {
             type: "integer",
@@ -561,7 +562,7 @@ export const swaggerDocument = {
             type: "integer",
             minimum: 2,
             maximum: 48,
-            description: "Número de parcelas (opcional). Gera um gasto por mês, a partir da data informada",
+            description: "Número de parcelas (opcional; omitir = à vista). Só é aceito com a forma de pagamento cartão de crédito. Gera um gasto por mês, a partir da data informada",
             example: 3,
           },
           notes: {
@@ -574,7 +575,7 @@ export const swaggerDocument = {
       },
       ExpenseUpdateInput: {
         type: "object",
-        required: ["id"], // Apenas o ID é obrigatório no update
+        required: ["id"],
         properties: {
           id: {
             type: "integer",
@@ -616,7 +617,6 @@ export const swaggerDocument = {
       },
     },
   },
-  // Definição de cada rota, método HTTP, parâmetros e respostas
   paths: {
     // ------------------ ROTAS DE USUÁRIOS & AUTH ------------------
     "/users/register": {
@@ -685,7 +685,7 @@ export const swaggerDocument = {
       get: {
         tags: ["Usuários"],
         summary: "Obter informações do usuário autenticado",
-        security: [{ bearerAuth: [] }], // Indica que necessita de JWT
+        security: [{ bearerAuth: [] }],
         responses: {
           200: {
             description: "Dados do usuário logado, com preferências de sistema e de pagamento",
@@ -842,7 +842,6 @@ export const swaggerDocument = {
         tags: ["Formas de Pagamento"],
         summary: "Ativar/desativar preferência de forma de pagamento",
         security: [{ bearerAuth: [] }],
-        // Exemplo de parâmetro de rota (Path Parameter)
         parameters: [
           {
             name: "id",
