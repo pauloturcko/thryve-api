@@ -5,7 +5,7 @@ import {CreateCardDto, UpdateCardDTO} from "../DTO/cards-dto";
 
 type UniqueCard = {
     userId: number,
-    name: string,
+    slug: string,
     lastFourDigits: string,
 }
 // TODO: Revisar todos os repositories e remover tipagens locais
@@ -21,11 +21,11 @@ export class CardsRepository {
         return await this.repository.save(data);
     }
 
-    async findByUniqueFields({userId, name, lastFourDigits}: UniqueCard) {
+    async findByUniqueFields({userId, slug, lastFourDigits}: UniqueCard) {
         return this.repository.findOne({
             where: {
                 userId: userId,
-                name: name,
+                slug: slug,
                 lastFourDigits: lastFourDigits,
             },
         });

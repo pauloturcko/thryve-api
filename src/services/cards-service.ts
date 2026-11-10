@@ -1,8 +1,15 @@
 import {CardsRepository} from "../db/repository/cards-repository";
 import {TransactionRepository} from "../db/repository/transaction-repository";
-import {createCardValidator, deleteCardValidator, updateCardValidator} from "./validators/card-validator";
-import {GenericError, NotFoundError, ForbiddenError} from "../errors";
+import {
+    cardHasCredit,
+    createCardValidator,
+    deleteCardValidator,
+    limitRequiredMessage,
+    updateCardValidator,
+} from "./validators/card-validator";
+import {BusinessRuleError, GenericError, NotFoundError, ForbiddenError} from "../errors";
 import {Cards} from "../db/models/cards";
+import {slugify} from "../utils/slugify";
 
 export class CardsService {
     private cardsRepository = new CardsRepository();
@@ -12,11 +19,11 @@ export class CardsService {
         const {name, limit, cardType, cardFlag, expiresIn, lastFourDigits} =
             createCardValidator.parse(data);
 
-        const normalizedName = name.trim().toLowerCase();
+        const slug = slugify(name);
 
         const existingCard = await this.cardsRepository.findByUniqueFields({
             userId,
-            name: normalizedName,
+            slug,
             lastFourDigits,
         });
 
@@ -26,7 +33,8 @@ export class CardsService {
 
         return await this.cardsRepository.create({
             userId,
-            name: normalizedName,
+            name,
+            slug,
             cardType,
             limit,
             cardFlag,
@@ -46,18 +54,21 @@ export class CardsService {
         if (!card) throw new NotFoundError('Card does not exist!');
         if (card.userId !== userId) throw new ForbiddenError();
 
-        if (parsedData.name) {
-            parsedData.name = parsedData.name.trim().toLowerCase();
-        }
-
         const updatedCardData = {
             ...card,
-            ...parsedData
+            ...parsedData,
+            slug: slugify(parsedData.name ?? card.name),
         };
+
+        if (!cardHasCredit(updatedCardData.cardType)) {
+            updatedCardData.limit = null;
+        } else if (updatedCardData.limit == null) {
+            throw new BusinessRuleError(limitRequiredMessage);
+        }
 
         const existingCard = await this.cardsRepository.findByUniqueFields({
             userId,
-            name: updatedCardData.name,
+            slug: updatedCardData.slug,
             lastFourDigits: updatedCardData.lastFourDigits,
         });
 

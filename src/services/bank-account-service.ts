@@ -2,6 +2,7 @@ import { BankAccount } from "../db/models/bank-account";
 import { BankAccountRepository } from "../db/repository/bank-account-repository";
 import { TransactionRepository } from "../db/repository/transaction-repository";
 import { ForbiddenError, GenericError, NotFoundError } from "../errors";
+import { slugify } from "../utils/slugify";
 import { createBankAccountValidator, deleteBankAccountValidator, updateBankAccountValidator } from "./validators/bank-account-validator";
 
 export class BankAccountService {
@@ -11,11 +12,11 @@ export class BankAccountService {
     async create(userId: number, data: unknown) {
         const {name, accountType, balance} = createBankAccountValidator.parse(data)
 
-        const normalizedName = name.trim().toLowerCase();
+        const slug = slugify(name)
 
         const existingBankAccount = await this.bankAccountRepository.findByUnique({
             userId,
-            name: normalizedName,
+            slug,
             accountType
         })
 
@@ -25,7 +26,8 @@ export class BankAccountService {
 
         return await this.bankAccountRepository.create({
             userId,
-            name: normalizedName,
+            name,
+            slug,
             accountType,
             balance
         })
@@ -42,18 +44,15 @@ export class BankAccountService {
         if(!bankAccount) throw new NotFoundError("Bank account does not exist!")
         if(bankAccount.userId !== userId) throw new ForbiddenError();
 
-        if(parsedData.name) {
-            parsedData.name = parsedData.name.trim().toLocaleLowerCase()
-        }
-
         const updatedBankAccountData = {
             ...bankAccount,
-            ...parsedData
+            ...parsedData,
+            slug: slugify(parsedData.name ?? bankAccount.name)
         }
 
         const existingBankAccount = await this.bankAccountRepository.findByUnique({
             userId,
-            name: updatedBankAccountData.name,
+            slug: updatedBankAccountData.slug,
             accountType: updatedBankAccountData.accountType
         })
 

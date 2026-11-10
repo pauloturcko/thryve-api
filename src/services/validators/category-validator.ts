@@ -1,13 +1,9 @@
 import {z} from "zod";
 import {CategoryTypeEnum} from "../../db/enum/category-type-enum";
-import {idValidator} from "./common-validator";
+import {idValidator, nameValidator} from "./common-validator";
 
 export const createCategoryValidator = z.object({
-    name: z
-        .string()
-        .trim()
-        .toLowerCase()
-        .min(3),
+    name: nameValidator,
 
     icon: z
         .string()

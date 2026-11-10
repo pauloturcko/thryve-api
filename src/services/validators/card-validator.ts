@@ -1,14 +1,14 @@
 import {z} from "zod";
 import {CardTypeEnum} from "../../db/enum/card-type-enum";
 import {CardFlagEnum} from "../../db/enum/card-flag-enum";
-import {idValidator, moneyValidator} from "./common-validator";
+import {idValidator, nameValidator, moneyValidator} from "./common-validator";
 
-export const createCardValidator = z.object({
-    name: z
-        .string()
-        .trim()
-        .toLowerCase()
-        .min(3),
+export const cardHasCredit = (cardType: CardTypeEnum) => cardType !== CardTypeEnum.debit;
+
+export const limitRequiredMessage = "Informe o limite do cartão";
+
+const cardFieldsValidator = z.object({
+    name: nameValidator,
 
     cardType: z.enum(CardTypeEnum),
 
@@ -26,7 +26,9 @@ export const createCardValidator = z.object({
 
     limit: moneyValidator("Limite inválido")
         .refine((value) => value >= 100, "O limite deve ser no mínimo 100,00")
-        .transform((value) => value.toFixed(2)),
+        .transform((value) => value.toFixed(2))
+        .nullable()
+        .optional(),
 
     expiresIn: z
         .string()
@@ -51,7 +53,18 @@ export const createCardValidator = z.object({
         .regex(/^\d{4}$/, "Cartão inválido"),
 });
 
-export const updateCardValidator = createCardValidator
+export const createCardValidator = cardFieldsValidator
+    .superRefine((card, ctx) => {
+        if (cardHasCredit(card.cardType) && card.limit == null) {
+            ctx.addIssue({code: "custom", path: ["limit"], message: limitRequiredMessage});
+        }
+    })
+    .transform((card) => ({
+        ...card,
+        limit: cardHasCredit(card.cardType) ? card.limit ?? null : null,
+    }));
+
+export const updateCardValidator = cardFieldsValidator
     .partial()
     .extend({
         id: idValidator,

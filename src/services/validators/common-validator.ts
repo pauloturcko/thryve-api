@@ -1,6 +1,14 @@
 import {z} from "zod";
+import {slugify} from "../../utils/slugify";
 
 export const idValidator = z.number().int().positive();
+
+export const nameValidator = z
+    .string()
+    .trim()
+    .overwrite((value) => value.replace(/\s+/g, " "))
+    .min(3)
+    .refine((value) => slugify(value).length > 0, "O nome precisa ter letras ou números");
 
 // Aceita formato BR (8.000,00) e US (8,000.00), com ou sem separador de milhar e casas decimais.
 const moneyRegex = /^-?(\d{1,3}(\.\d{3})*(,\d{1,2})?|\d{1,3}(,\d{3})*(\.\d{1,2})?|\d+([.,]\d{1,2})?)$/;
