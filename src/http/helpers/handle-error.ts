@@ -1,4 +1,5 @@
 import type {Response} from "express";
+import {MulterError} from "multer";
 import {ZodError} from "zod";
 import {BusinessRuleError, ForbiddenError, GenericError, NotFoundError, UnauthorizedError} from "../../errors";
 
@@ -12,6 +13,13 @@ export function handleError(res: Response, error: unknown) {
                 message: issue.message,
             })),
         });
+    }
+
+    if (error instanceof MulterError) {
+        if (error.code === "LIMIT_FILE_SIZE") {
+            return res.status(413).json({message: "A imagem deve ter no máximo 5MB"});
+        }
+        return res.status(400).json({message: error.message});
     }
 
     if (error instanceof UnauthorizedError) {

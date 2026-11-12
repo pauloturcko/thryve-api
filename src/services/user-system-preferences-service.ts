@@ -1,4 +1,5 @@
 import { UserSystemPreferencesRepository } from "../db/repository/user-system-preferences-repository";
+import { UserSystemPreferences } from "../db/DTO/user-system-preferences";
 import { NotFoundError } from "../errors";
 import { updateSystemPreferencesValidator } from "./validators/system-preferences-validators";
 
@@ -9,9 +10,9 @@ export class UserSystemPreferencesService {
         this.userSystemPreferencesRepository = new UserSystemPreferencesRepository()
     }
 
-    async updatePreference(userId: number, data: unknown) {
+    async updatePreference(userId: number, data: unknown): Promise<UserSystemPreferences> {
         const parsedData = updateSystemPreferencesValidator.parse(data)
-        
+
         const preference = await this.userSystemPreferencesRepository.loadByUserId(userId)
         if (!preference) {
             throw new NotFoundError("Preferences not found")
@@ -19,6 +20,12 @@ export class UserSystemPreferencesService {
 
         Object.assign(preference, parsedData)
 
-        return await this.userSystemPreferencesRepository.save(preference)
+        const saved = await this.userSystemPreferencesRepository.save(preference)
+
+        return {
+            theme: saved.theme,
+            language: saved.language,
+            currency: saved.currency,
+        }
     }
 }

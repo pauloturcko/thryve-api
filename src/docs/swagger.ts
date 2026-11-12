@@ -75,7 +75,12 @@ export const swaggerDocument = {
           name: { type: "string", example: "João Silva" },
           email: { type: "string", format: "email", example: "joao@email.com" },
           createdAt: { type: "string", format: "date-time" },
-          profilePicture: { type: "string", nullable: true, example: null },
+          profilePicture: {
+            type: "string",
+            nullable: true,
+            description: "Caminho da foto relativo à URL da API (`new URL(profilePicture, API_URL)`). `null` = sem foto",
+            example: "/profile-picture/0b6f1c1e-6d2a-4c47-9a39-3f1f7f0c2a10",
+          },
         },
       },
       SystemPreferencesResponse: {
@@ -90,15 +95,24 @@ export const swaggerDocument = {
           language: {
             type: "integer",
             enum: [0, 1, 2],
-            description: "0 = português, 1 = inglês, 2 = espanhol",
+            description: "0 = português (pt-BR), 1 = inglês, 2 = espanhol",
             example: 0,
           },
           currency: {
             type: "integer",
             enum: [0, 1, 2, 3, 4, 5],
-            description: "0 = BRL, 1 = USD, 2 = AUS, 3 = NZD, 4 = EUR, 5 = GBP",
+            description: "0 = BRL, 1 = USD, 2 = AUD, 3 = NZD, 4 = EUR, 5 = GBP",
             example: 0,
           },
+        },
+      },
+      SystemPreferencesUpdateInput: {
+        type: "object",
+        description: "Envie só o que mudou, com ao menos um campo. Os valores são os mesmos de `SystemPreferencesResponse`",
+        properties: {
+          theme: { type: "integer", enum: [0, 1], example: 1 },
+          language: { type: "integer", enum: [0, 1, 2], example: 1 },
+          currency: { type: "integer", enum: [0, 1, 2, 3, 4, 5], example: 1 },
         },
       },
       PaymentPreferenceResponse: {
@@ -697,6 +711,151 @@ export const swaggerDocument = {
           },
           401: {
             description: "Token inválido ou não fornecido",
+          },
+        },
+      },
+    },
+
+    // ------------------ ROTAS DE PREFERÊNCIAS DO SISTEMA ------------------
+    "/system-preferences/update": {
+      patch: {
+        tags: ["Preferências do Sistema"],
+        summary: "Alterar tema, idioma e/ou moeda do usuário logado",
+        description: "Só troca entre as opções existentes; idiomas e moedas não são criados nem removidos pelo usuário.",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/SystemPreferencesUpdateInput",
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Preferências atualizadas. Devolve `{ systemPreferences }` completo",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    systemPreferences: { $ref: "#/components/schemas/SystemPreferencesResponse" },
+                  },
+                },
+              },
+            },
+          },
+          400: {
+            description: "Valor fora das opções ou nenhum campo enviado",
+          },
+          401: {
+            description: "Não autorizado",
+          },
+          404: {
+            description: "Preferências do usuário não encontradas",
+          },
+        },
+      },
+    },
+
+    // ------------------ ROTAS DE FOTO DE PERFIL ------------------
+    "/profile-picture/upload": {
+      post: {
+        tags: ["Foto de Perfil"],
+        summary: "Enviar ou trocar a foto de perfil do usuário logado",
+        description:
+          "Recebe JPG, PNG ou WebP de até 5MB. A API recorta em 512x512, converte para WebP e descarta os metadados (EXIF/GPS). " +
+          "Cada envio gera uma URL nova; a anterior deixa de existir.",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                required: ["file"],
+                properties: {
+                  file: { type: "string", format: "binary" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Foto salva. Devolve `{ profilePicture }`, o mesmo valor que passa a vir em `user.profilePicture`",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    profilePicture: { type: "string", example: "/profile-picture/0b6f1c1e-6d2a-4c47-9a39-3f1f7f0c2a10" },
+                  },
+                },
+              },
+            },
+          },
+          400: {
+            description: "Arquivo ausente ou enviado em outro campo que não `file`",
+          },
+          401: {
+            description: "Não autorizado",
+          },
+          413: {
+            description: "Arquivo maior que 5MB",
+          },
+          422: {
+            description: "O arquivo não é uma imagem JPG, PNG ou WebP válida",
+          },
+        },
+      },
+    },
+    "/profile-picture/delete": {
+      delete: {
+        tags: ["Foto de Perfil"],
+        summary: "Remover a foto de perfil do usuário logado",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: "Foto removida (ou o usuário já não tinha foto). `user.profilePicture` passa a ser `null`",
+          },
+          401: {
+            description: "Não autorizado",
+          },
+        },
+      },
+    },
+    "/profile-picture/{id}": {
+      get: {
+        tags: ["Foto de Perfil"],
+        summary: "Obter a imagem da foto de perfil",
+        description:
+          "Rota pública, para funcionar direto em `<img src>`, que não envia o header Authorization. " +
+          "O id é um UUID aleatório, então não dá para descobrir a foto de outros usuários. Resposta com cache de 1 ano.",
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          200: {
+            description: "Imagem WebP",
+            content: {
+              "image/webp": {
+                schema: { type: "string", format: "binary" },
+              },
+            },
+          },
+          400: {
+            description: "id não é um UUID",
+          },
+          404: {
+            description: "Foto não encontrada (removida ou substituída)",
           },
         },
       },

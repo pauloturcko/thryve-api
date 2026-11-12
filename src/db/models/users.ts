@@ -21,7 +21,7 @@ export class Users {
     password: string;
 
     @Column({nullable: true, type: 'varchar', name: 'profile_picture'})
-    profilePicture?: string;
+    profilePicture: string | null;
 
     @CreateDateColumn({type: 'timestamp', name: 'created_at'})
     createdAt: Date;
