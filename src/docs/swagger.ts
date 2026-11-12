@@ -427,6 +427,79 @@ export const swaggerDocument = {
           },
         },
       },
+      // ===== METAS =====
+      GoalRegisterInput: {
+        type: "object",
+        required: ["name", "priority"],
+        properties: {
+          name: {
+            type: "string",
+            example: "Monitor novo",
+            description: "Nome da meta (mínimo de 3 caracteres)",
+          },
+          targetAmount: {
+            type: "string",
+            nullable: true,
+            example: "1.300,00",
+            description: "Valor a ser atingido, maior que zero (opcional). Aceita '1300.00' ou formato BR '1.300,00'",
+          },
+          savedAmount: {
+            type: "string",
+            example: "250,00",
+            description: "Quanto já foi guardado (opcional, padrão 0)",
+          },
+          priority: {
+            type: "integer",
+            enum: [0, 1, 2],
+            description: "Urgência: 0 = Baixa, 1 = Média, 2 = Alta",
+            example: 1,
+          },
+          status: {
+            type: "integer",
+            enum: [0, 1, 2],
+            description: "0 = Pendente, 1 = Finalizada, 2 = Cancelada. Se não for enviado, nasce como pendente",
+            example: 0,
+          },
+          deadline: {
+            type: "string",
+            nullable: true,
+            example: "2027-03-31",
+            description: "Prazo para cumprir a meta (opcional), no formato AAAA-MM-DD",
+          },
+          notes: {
+            type: "string",
+            nullable: true,
+            example: "Modelo LG 27 polegadas",
+            description: "Observação livre (até 500 caracteres)",
+          },
+        },
+      },
+      GoalUpdateInput: {
+        type: "object",
+        required: ["id"],
+        properties: {
+          id: { type: "integer", description: "ID da meta (Obrigatório)", example: 1 },
+          name: { type: "string", description: "Novo nome (Opcional)", example: "Monitor 4K" },
+          targetAmount: { type: "string", nullable: true, description: "Novo valor alvo (Opcional)", example: "1.500,00" },
+          savedAmount: { type: "string", description: "Novo valor guardado (Opcional)", example: "600,00" },
+          priority: { type: "integer", enum: [0, 1, 2], description: "Nova urgência (Opcional)", example: 2 },
+          status: {
+            type: "integer",
+            enum: [0, 1, 2],
+            description: "Novo status (Opcional). Qualquer transição é permitida, inclusive reativar uma meta cancelada ou finalizada voltando para 0. Ao virar 1 (Finalizada), completedAt recebe a data do dia; nos outros status, fica null",
+            example: 1,
+          },
+          deadline: { type: "string", nullable: true, description: "Novo prazo (Opcional)", example: "2027-06-30" },
+          notes: { type: "string", nullable: true, description: "Nova observação (Opcional)", example: null },
+        },
+      },
+      GoalDeleteInput: {
+        type: "object",
+        required: ["id"],
+        properties: {
+          id: { type: "integer", description: "ID da meta a ser removida", example: 1 },
+        },
+      },
       IncomeRegisterInput: {
         type: "object",
         required: ["incomeKind", "amount", "date", "categoryId", "bankAccountId"],
@@ -1305,6 +1378,91 @@ export const swaggerDocument = {
           404: {
             description: "Categoria não encontrada",
           },
+        },
+      },
+    },
+
+    // ------------------ ROTAS DE METAS ------------------
+    "/goals/register": {
+      post: {
+        tags: ["Metas"],
+        summary: "Cadastrar uma nova meta para o usuário logado",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/GoalRegisterInput" } } },
+        },
+        responses: {
+          201: { description: "Meta registrada com sucesso" },
+          400: { description: "Erro de validação nos campos da meta" },
+          401: { description: "Não autorizado" },
+          409: { description: "Já existe uma meta com o mesmo nome (GOAL_ALREADY_EXISTS)" },
+        },
+      },
+    },
+    "/goals/user-goals": {
+      get: {
+        tags: ["Metas"],
+        summary: "Listar as metas do usuário logado",
+        description: "Ordenadas por status (pendentes primeiro), urgência (alta primeiro), prazo (sem prazo por último) e data de criação",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: "query",
+            name: "status",
+            required: false,
+            schema: { type: "integer", enum: [0, 1, 2] },
+            description: "0 = Pendente, 1 = Finalizada, 2 = Cancelada",
+          },
+          {
+            in: "query",
+            name: "priority",
+            required: false,
+            schema: { type: "integer", enum: [0, 1, 2] },
+            description: "0 = Baixa, 1 = Média, 2 = Alta",
+          },
+        ],
+        responses: {
+          200: { description: "Lista de metas retornada com sucesso" },
+          400: { description: "Filtro inválido" },
+          401: { description: "Não autorizado" },
+        },
+      },
+    },
+    "/goals/update": {
+      patch: {
+        tags: ["Metas"],
+        summary: "Atualizar dados de uma meta",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/GoalUpdateInput" } } },
+        },
+        responses: {
+          200: { description: "Meta atualizada com sucesso" },
+          400: { description: "Erro de validação" },
+          401: { description: "Não autorizado" },
+          403: { description: "A meta pertence a outro usuário" },
+          404: { description: "Meta não encontrada (GOAL_NOT_FOUND)" },
+          409: { description: "Já existe uma meta com o mesmo nome (GOAL_ALREADY_EXISTS)" },
+        },
+      },
+    },
+    "/goals/delete": {
+      delete: {
+        tags: ["Metas"],
+        summary: "Remover uma meta",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/GoalDeleteInput" } } },
+        },
+        responses: {
+          200: { description: "Meta excluída com sucesso" },
+          400: { description: "ID ausente ou inválido" },
+          401: { description: "Não autorizado" },
+          403: { description: "A meta pertence a outro usuário" },
+          404: { description: "Meta não encontrada (GOAL_NOT_FOUND)" },
         },
       },
     },

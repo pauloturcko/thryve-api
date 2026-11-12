@@ -2,7 +2,7 @@ import {z} from "zod";
 import {ExpenseKindEnum} from "../../db/enum/expense-kind-enum";
 import {IncomeKindEnum} from "../../db/enum/income-kind-enum";
 import {TransactionStatusEnum} from "../../db/enum/transaction-status-enum";
-import {idValidator, moneyValidator} from "./common-validator";
+import {dateValidator, idValidator, moneyValidator} from "./common-validator";
 import {ValidationIssueCode} from "../../errors";
 
 const amountValidator = moneyValidator("Valor inválido")
@@ -11,16 +11,6 @@ const amountValidator = moneyValidator("Valor inválido")
         params: {code: ValidationIssueCode.amountNotPositive},
     })
     .transform((value) => value.toFixed(2));
-
-const dateValidator = z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida")
-    .refine((value) => {
-        const [year, month, day] = value.split("-").map(Number);
-        const date = new Date(year, month - 1, day);
-
-        return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
-    }, {message: "Data inválida", params: {code: ValidationIssueCode.invalidDate}});
 
 export const createIncomeValidator = z.object({
     incomeKind: z.enum(IncomeKindEnum),

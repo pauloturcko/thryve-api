@@ -52,6 +52,10 @@ export enum ErrorCode {
     expenseNotFound = "EXPENSE_NOT_FOUND",
     expenseHasRefunds = "EXPENSE_HAS_REFUNDS",
     installmentsRequireCredit = "INSTALLMENTS_REQUIRE_CREDIT",
+
+    // Metas
+    goalAlreadyExists = "GOAL_ALREADY_EXISTS",
+    goalNotFound = "GOAL_NOT_FOUND",
 }
 
 // Códigos usados em `errors[].code` do 400 de validação, além dos códigos nativos do Zod
@@ -60,6 +64,7 @@ export enum ValidationIssueCode {
     nameWithoutAlphanumeric = "NAME_WITHOUT_ALPHANUMERIC",
     amountTooLarge = "AMOUNT_TOO_LARGE",
     amountNotPositive = "AMOUNT_NOT_POSITIVE",
+    amountNegative = "AMOUNT_NEGATIVE",
     invalidDate = "INVALID_DATE",
     cardLimitTooLow = "CARD_LIMIT_TOO_LOW",
     cardLimitRequired = "CARD_LIMIT_REQUIRED",
