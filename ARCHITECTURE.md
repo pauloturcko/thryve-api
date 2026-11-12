@@ -44,7 +44,21 @@ A pasta mistura dois conceitos que merecem atenção na hora de adicionar algo n
 
 - Ao registrar (`UsersService.register`), todo usuário novo ganha automaticamente: `UserSystemPreferences` com defaults (`dark`, `portuguese`, `brl`) e uma `UserPaymentPreferences` **para cada** `PaymentMethods` existente na tabela, todas com `isActive: true`. Ou seja, a lista de formas de pagamento disponíveis é global (cadastrada à parte, `payment_methods`), e cada usuário tem uma preferência própria por método.
 - `theme`, `language` e `currency` são enums numéricos (`ThemeEnum`, `LanguagesEnum`, `CurrencyEnum` em `db/enum/`) — o JSON expõe o número, não o nome (`0`, não `"dark"`). O Swagger documenta o mapeamento número→significado.
-- Há um TODO em [currency-enum.ts](src/db/enum/currency-enum.ts) sobre uma feature futura de detectar moeda/localização automaticamente via IA — ainda não implementada.
+- **Tradução não mora no banco nem na API.** O back só guarda qual idioma/moeda o usuário escolheu; o front tem o mesmo mapa número→idioma (`0` → `pt-BR`, `1` → `en`, `2` → `es`) e a lib de i18n dele exibe os textos. Moeda idem: o front formata com o código ISO 4217 (`Intl.NumberFormat`). Por isso a chave do enum de moeda é o código ISO em minúsculas (`aud`, não `aus` — renomeado sem impacto, já que o banco guarda o número).
+- Idiomas e moedas são listas fixas no código: o usuário só alterna entre as opções via `PATCH /system-preferences/update` (aceita `theme`, `language` e `currency`, ao menos um). Adicionar uma opção é mudar o enum (back) e o mapa (front), sem migration.
+- Há um TODO em [languages-enum.ts](src/db/enum/languages-enum.ts) sobre uma feature futura de trazer informações da economia do país do usuário via IA — ainda não implementada.
+
+## Foto de perfil
+
+Fluxo: `POST /profile-picture/upload` (multipart, campo `file`) → [multer](src/http/middlewares/upload-middleware.ts) guarda o arquivo **só em memória** (máx. 5MB) → [`processProfilePicture`](src/utils/process-profile-picture.ts) decodifica com `sharp`, recorta em 512x512 e converte pra WebP → [`ProfilePictureService.upload`](src/services/profile-picture-service.ts) salva os bytes na tabela `profile_pictures` e a URL em `users.profile_picture`, na mesma transação.
+
+- **Bytes no Postgres (`bytea`), não em disco nem em S3.** O disco do Railway é apagado a cada deploy, então salvar em pasta local perderia as fotos. Object storage (S3/R2) é o caminho "de escala", mas exige conta, credenciais e custo; com a imagem reduzida (uma foto de 2MB vira ~20–40KB) o banco aguenta tranquilo nesse volume. Migrar depois é trocar o `ProfilePictureRepository` e o que vai em `users.profile_picture` — o front não muda.
+- **Tabela separada, não coluna na `users`**: o `authMiddleware` faz `loadById` a cada request; com a imagem na `users`, todo request autenticado carregaria os bytes.
+- **Reprocessar sempre, nunca salvar o original**: o mimetype que o navegador manda é forjável, então quem valida é o `sharp` conseguir decodificar (JPG/PNG/WebP, senão 422). A saída não leva o EXIF da original (foto de celular costuma ter GPS) e `limitInputPixels` barra imagem gigante comprimida (decompression bomb).
+- **`GET /profile-picture/:id` é público**: `<img src>` não manda o header `Authorization`. O `id` é um UUID aleatório gerado a cada upload — não dá pra adivinhar a foto de outro usuário (com o id sequencial daria) e a URL muda quando a foto muda, o que permite `Cache-Control: immutable` de 1 ano.
+- `users.profile_picture` guarda o caminho **relativo** (`/profile-picture/<uuid>`), porque a API muda de domínio entre ambientes. O front monta com `new URL(profilePicture, API_URL)` — que também funciona se um dia virar URL absoluta de S3.
+- O upload é um `upsert` com `ON CONFLICT (user_id)`: troca a foto num comando só, sem estourar a constraint única quando chegam dois uploads ao mesmo tempo.
+- Atenção: com `logging: true` no [data-source.ts](src/db/config/data-source.ts), o TypeORM loga os parâmetros do INSERT, ou seja, os bytes da imagem (~80KB de log por upload). Vale desligar o log de queries em produção.
 
 ## Validação (Zod) e normalização de dados
 
@@ -72,6 +86,28 @@ Todo controller termina o `catch` com [`handleError`](src/http/helpers/handle-er
 
 - `GenericError` hoje significa conflito/duplicidade (email, cartão, conta, categoria), por isso 409. Erro de negócio que não seja conflito deve ganhar classe própria em vez de reaproveitar o `GenericError`.
 - O 500 nunca serializa o erro na resposta: um `QueryFailedError` do TypeORM carrega a query SQL, os parâmetros e o erro do Postgres, e antes isso ia inteiro pro cliente.
+
+---
+
+## Ideias anotadas (ainda não implementadas)
+
+### Troca de moeda com lançamentos existentes
+Hoje `currency` só muda a formatação: um gasto de `100` salvo em BRL passa a aparecer como US$ 100. Duas saídas a decidir:
+- **Converter os valores** pela cotação do dia da troca: mexe em todos os registros, é irreversível na prática (trocar e destrocar não volta ao valor original por causa do arredondamento) e reescreve o histórico com uma cotação que não era a da época.
+- **Manter os valores e exibir a conversão ao lado** (recomendado): cada lançamento guarda a moeda em que foi feito (nova coluna `currency` em `transactions`, `bank_account`, `cards.limit`) e a tela mostra o valor original + o equivalente na moeda preferida pela cotação atual (ou da data do lançamento, buscando de uma API de câmbio e cacheando por dia). Nada se perde e o usuário que mudou de país continua vendo o que gastou de verdade.
+
+### Refresh token com logout por inatividade
+Objetivo: quem está usando o sistema nunca é deslogado; quem saiu do computador é. Proposta:
+- **Access token curto** (o mesmo JWT de hoje, mas com 15 min em vez de 1h) + **refresh token longo** (string aleatória, não JWT) salvo **com hash** numa tabela `refresh_tokens` (`user_id`, `token_hash`, `expires_at`, `last_used_at`, `revoked_at`). Endpoints `POST /users/refresh` e `POST /users/logout`.
+- **Rotação**: cada `/refresh` invalida o refresh usado e devolve um par novo. Se um refresh já usado aparecer de novo, é sinal de roubo → revoga a sessão inteira.
+- **Inatividade no servidor**: o refresh expira se ficar ~30 min sem uso (janela deslizante) e tem validade máxima de ~7 dias. O servidor não vê o mouse, mas como o front só chama `/refresh` quando o usuário está ativo, sessão parada morre sozinha, mesmo com a aba aberta.
+- **Front**: escuta `mousemove`/`keydown`/`click`/`scroll`/`touchstart` (com throttle) e guarda `lastActivity` no `localStorage` (vale pra todas as abas). Faltando ~1 min pro access token expirar: se teve atividade desde o último refresh → chama `/refresh`; se passou do limite de inatividade → aviso "Você ainda está aí?" com contagem e, sem resposta, logout. Um interceptor do axios trata o 401 com uma tentativa de refresh antes de deslogar, com uma única promise de refresh compartilhada (e `navigator.locks` entre abas, senão duas abas rotacionam o mesmo token e a detecção de roubo derruba a sessão).
+- Cookie `httpOnly` pro refresh token é opcional: front (`thryve.pauloturcko.dev`) e API (`apithryve.pauloturcko.dev`) são o mesmo site, então funcionaria com `SameSite=Lax` e protegeria o refresh de XSS. Dá pra começar com o refresh no corpo da resposta.
+
+### Open Finance (importar gastos direto do banco)
+- **Plaid** não atende o Brasil: os países aceitos no `/link/token/create` são EUA, Canadá, Reino Unido e países da Europa.
+- **Pluggy** é o agregador brasileiro (Open Finance regulado + conectores próprios). Fluxo: back gera `apiKey` (clientId/secret, 2h) → cria `connect token` (30 min) → front abre o widget Pluggy Connect → usuário autoriza no app do banco → back guarda o `itemId` ligado ao usuário → webhooks (`item/updated`, `transactions/created`) avisam de dados novos → back busca e grava como `Transaction`.
+- **Custo**: sandbox grátis; produção a partir de ~R$ 2.500/mês (dados). O **Meu Pluggy** é grátis sem prazo, mas só pras contas do próprio dono (até 5 conexões) e sem uso comercial: serve pra prototipar com as suas contas, não pra liberar pros usuários.
 
 ---
 

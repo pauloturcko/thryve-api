@@ -13,6 +13,8 @@ import { bankAccountRouter } from "./http/routes/bank-account-routes";
 import { categoryRouter } from "./http/routes/category-routes";
 import { incomeRouter } from "./http/routes/income-routes";
 import { expenseRouter } from "./http/routes/expense-routes";
+import { systemPreferencesRouter } from "./http/routes/system-preferences-routes";
+import { profilePictureRouter } from "./http/routes/profile-picture-routes";
 
 const app = express();
 const normalizeOrigin = (origin: string) => origin.trim().replace(/\/+$/, "");
@@ -50,9 +52,9 @@ app.use("/bank-accounts", bankAccountRouter);
 app.use("/categories", categoryRouter);
 app.use("/incomes", incomeRouter);
 app.use("/expenses", expenseRouter);
+app.use("/system-preferences", systemPreferencesRouter);
+app.use("/profile-picture", profilePictureRouter);
 
-// JSON malformado falha no express.json(), antes de chegar ao controller e ao handleError.
-// Sem isso o Express responde uma página HTML em vez do formato de erro da API.
 app.use((error: unknown, req: Request, res: Response, next: NextFunction) => {
   if (error instanceof SyntaxError && "type" in error && error.type === "entity.parse.failed") {
     return res.status(400).json({ message: "Invalid JSON" });

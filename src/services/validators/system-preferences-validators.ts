@@ -7,4 +7,7 @@ export const updateSystemPreferencesValidator = z.object({
     theme: z.enum(ThemeEnum).optional(),
     language: z.enum(LanguagesEnum).optional(),
     currency: z.enum(CurrencyEnum).optional(),
-})
+}).refine(
+    (data) => Object.values(data).some((value) => value !== undefined),
+    "Informe ao menos uma preferência: theme, language ou currency"
+)
