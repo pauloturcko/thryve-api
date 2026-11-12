@@ -1,7 +1,7 @@
 import { Category } from "../db/models/category";
 import { CategoryRepository } from "../db/repository/category-repository";
 import { TransactionRepository } from "../db/repository/transaction-repository";
-import { ForbiddenError, GenericError, NotFoundError } from "../errors";
+import { ForbiddenError, GenericError, NotFoundError, ErrorCode } from "../errors";
 import { slugify } from "../utils/slugify";
 import { createCategoryValidator, deleteCategoryValidator, updateCategoryValidator } from "./validators/category-validator";
 
@@ -17,7 +17,7 @@ export class CategoryService {
         const existingCategory = await this.categoryRepository.findByUnique({userId, slug})
         
         if(existingCategory) {
-            throw new GenericError("This category already exists!")
+            throw new GenericError(ErrorCode.categoryAlreadyExists, "This category already exists!")
         }
 
         return await this.categoryRepository.create({
@@ -38,7 +38,7 @@ export class CategoryService {
         const parsedData = updateCategoryValidator.parse(data)
 
         const category = await this.categoryRepository.loadById(parsedData.id)
-        if(!category) throw new NotFoundError("Category does not exist!")
+        if(!category) throw new NotFoundError(ErrorCode.categoryNotFound, "Category does not exist!")
         if(category.userId !== userId) throw new ForbiddenError();
 
         const updateCategoryData = {
@@ -53,11 +53,11 @@ export class CategoryService {
         })
 
         if(existingCategory && existingCategory.id !== category.id) {
-            throw new GenericError("This category already exists!")
+            throw new GenericError(ErrorCode.categoryAlreadyExists, "This category already exists!")
         }
 
         if(updateCategoryData.type !== category.type && await this.transactionRepository.existsWhere({categoryId: category.id})) {
-            throw new GenericError("This category has transactions, so its type cannot be changed!")
+            throw new GenericError(ErrorCode.categoryTypeLocked, "This category has transactions, so its type cannot be changed!")
         }
 
         return await this.categoryRepository.update(updateCategoryData)
@@ -67,10 +67,10 @@ export class CategoryService {
         const {id} = deleteCategoryValidator.parse(data)
 
         const category = await this.categoryRepository.loadById(id)
-        if(!category) throw new NotFoundError("Category does not exist!")
+        if(!category) throw new NotFoundError(ErrorCode.categoryNotFound, "Category does not exist!")
         if(category.userId !== userId) throw new ForbiddenError();
         if(await this.transactionRepository.existsWhere({categoryId: id})) {
-            throw new GenericError("This category has transactions and cannot be deleted!")
+            throw new GenericError(ErrorCode.categoryHasTransactions, "This category has transactions and cannot be deleted!")
         }
 
         return await this.categoryRepository.delete(id)

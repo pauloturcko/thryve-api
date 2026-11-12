@@ -1,6 +1,7 @@
 import {Request, Response} from "express";
 import {ProfilePictureService} from "../../services/profile-picture-service";
 import {handleError} from "../helpers/handle-error";
+import {UnauthorizedError} from "../../errors";
 
 export class ProfilePictureController {
     private profilePictureService: ProfilePictureService
@@ -13,7 +14,7 @@ export class ProfilePictureController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             const profilePicture = await this.profilePictureService.upload(userId, req.file)
@@ -28,7 +29,7 @@ export class ProfilePictureController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             await this.profilePictureService.remove(userId)

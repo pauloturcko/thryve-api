@@ -15,6 +15,7 @@ import { incomeRouter } from "./http/routes/income-routes";
 import { expenseRouter } from "./http/routes/expense-routes";
 import { systemPreferencesRouter } from "./http/routes/system-preferences-routes";
 import { profilePictureRouter } from "./http/routes/profile-picture-routes";
+import { ErrorCode } from "./errors";
 
 const app = express();
 const normalizeOrigin = (origin: string) => origin.trim().replace(/\/+$/, "");
@@ -32,7 +33,6 @@ app.use(
     origin: (origin, callback) => {
       const isAllowed =
         !origin || allowedOrigins.includes("*") || allowedOrigins.includes(normalizeOrigin(origin));
-      // Origem não permitida: responde sem headers CORS (o browser bloqueia), sem estourar 500.
       callback(null, isAllowed);
     },
     credentials: true,
@@ -57,7 +57,7 @@ app.use("/profile-picture", profilePictureRouter);
 
 app.use((error: unknown, req: Request, res: Response, next: NextFunction) => {
   if (error instanceof SyntaxError && "type" in error && error.type === "entity.parse.failed") {
-    return res.status(400).json({ message: "Invalid JSON" });
+    return res.status(400).json({ code: ErrorCode.invalidJson, message: "Invalid JSON" });
   }
   return next(error);
 });

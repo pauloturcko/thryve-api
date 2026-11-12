@@ -1,6 +1,7 @@
 import type {Request, Response} from "express";
 import {UsersService} from "../../services/users-service";
 import {handleError} from "../helpers/handle-error";
+import {UnauthorizedError} from "../../errors";
 
 export class UsersController {
     private userService: UsersService;
@@ -34,7 +35,7 @@ export class UsersController {
             const {user} = req;
 
             if (!user) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             const savedUser = await this.userService.getLoggedUser(user.id);

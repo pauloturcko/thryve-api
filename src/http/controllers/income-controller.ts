@@ -1,6 +1,7 @@
 import {Request, Response} from "express";
 import {TransactionService} from "../../services/transaction-service";
 import {handleError} from "../helpers/handle-error";
+import {UnauthorizedError} from "../../errors";
 
 export class IncomeController {
     private transactionService: TransactionService;
@@ -13,7 +14,7 @@ export class IncomeController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             const registeredIncome = await this.transactionService.createIncome(userId, req.body);
@@ -31,7 +32,7 @@ export class IncomeController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             const incomes = await this.transactionService.loadIncomes(userId, req.query);
@@ -45,7 +46,7 @@ export class IncomeController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             const income = await this.transactionService.updateIncome(userId, req.body);
@@ -59,7 +60,7 @@ export class IncomeController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             await this.transactionService.deleteIncome(userId, req.body);

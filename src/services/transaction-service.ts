@@ -14,7 +14,7 @@ import { CardsRepository } from "../db/repository/cards-repository";
 import { CategoryRepository } from "../db/repository/category-repository";
 import { TransactionRepository } from "../db/repository/transaction-repository";
 import { UserPaymentPreferencesRepository } from "../db/repository/user-payment-preferences-repository";
-import { BusinessRuleError, ForbiddenError, GenericError, NotFoundError } from "../errors";
+import { BusinessRuleError, ForbiddenError, GenericError, NotFoundError, ErrorCode } from "../errors";
 import {
     createExpenseValidator,
     createIncomeValidator,
@@ -223,7 +223,7 @@ export class TransactionService {
 
         const current = await this.loadOwnedTransactionOfType(userId, id, TransactionTypeEnum.expense);
         if (await this.transactionRepository.hasLinkedTransactions(id)) {
-            throw new GenericError("Este gasto tem reembolsos vinculados. Exclua os reembolsos antes.");
+            throw new GenericError(ErrorCode.expenseHasRefunds, "Este gasto tem reembolsos vinculados. Exclua os reembolsos antes.");
         }
 
         await this.saveChange(userId, current, null, (repository) => repository.delete(id));
@@ -256,31 +256,31 @@ export class TransactionService {
     private async ensureUserHasAccount(userId: number): Promise<void> {
         const accounts = await this.bankAccountRepository.loadAll(userId);
         if (accounts.length === 0) {
-            throw new BusinessRuleError("Cadastre uma conta bancária antes de lançar receitas ou gastos.");
+            throw new BusinessRuleError(ErrorCode.bankAccountRequired, "Cadastre uma conta bancária antes de lançar receitas ou gastos.");
         }
     }
 
     private async ensureValidPayment(userId: number, paymentMethodId: number, cardId: number | null): Promise<PaymentMethods> {
         const preference = await this.userPaymentPreferencesRepository.findByUserAndMethod(userId, paymentMethodId);
-        if (!preference) throw new NotFoundError("Payment method not found");
+        if (!preference) throw new NotFoundError(ErrorCode.paymentMethodNotFound, "Payment method not found");
         if (!preference.isActive) {
-            throw new BusinessRuleError("Essa forma de pagamento está desativada nas suas configurações.");
+            throw new BusinessRuleError(ErrorCode.paymentMethodDisabled, "Essa forma de pagamento está desativada nas suas configurações.");
         }
 
         const {paymentMethod} = preference;
         if (paymentMethod.requiresCard && !cardId) {
-            throw new BusinessRuleError("Informe o cartão para pagamentos no crédito ou no débito.");
+            throw new BusinessRuleError(ErrorCode.cardRequired, "Informe o cartão para pagamentos no crédito ou no débito.");
         }
         if (cardId) {
             const card = await this.cardsRepository.loadById(cardId);
-            if (!card) throw new NotFoundError("Card does not exist!");
+            if (!card) throw new NotFoundError(ErrorCode.cardNotFound, "Card does not exist!");
             if (card.userId !== userId) throw new ForbiddenError();
 
             if (paymentMethod.id === PaymentMethodEnum.creditCard && card.cardType === CardTypeEnum.debit) {
-                throw new BusinessRuleError("Esse cartão é só de débito e não pode ser usado no crédito.");
+                throw new BusinessRuleError(ErrorCode.cardDebitOnly, "Esse cartão é só de débito e não pode ser usado no crédito.");
             }
             if (paymentMethod.id === PaymentMethodEnum.debitCard && card.cardType === CardTypeEnum.credit) {
-                throw new BusinessRuleError("Esse cartão é só de crédito e não pode ser usado no débito.");
+                throw new BusinessRuleError(ErrorCode.cardCreditOnly, "Esse cartão é só de crédito e não pode ser usado no débito.");
             }
         }
 
@@ -289,14 +289,16 @@ export class TransactionService {
 
     private ensureInstallmentsAllowed(paymentMethod: PaymentMethods): void {
         if (paymentMethod.id !== PaymentMethodEnum.creditCard) {
-            throw new BusinessRuleError("Só é possível parcelar no cartão de crédito.");
+            throw new BusinessRuleError(ErrorCode.installmentsRequireCredit, "Só é possível parcelar no cartão de crédito.");
         }
     }
 
     private async loadOwnedTransactionOfType(userId: number, id: number, type: TransactionTypeEnum): Promise<Transaction> {
         const transaction = await this.transactionRepository.loadById(id);
         if (!transaction || transaction.type !== type) {
-            throw new NotFoundError(type === TransactionTypeEnum.income ? "Income does not exist!" : "Expense does not exist!");
+            throw type === TransactionTypeEnum.income
+                ? new NotFoundError(ErrorCode.incomeNotFound, "Income does not exist!")
+                : new NotFoundError(ErrorCode.expenseNotFound, "Expense does not exist!");
         }
         if (transaction.userId !== userId) throw new ForbiddenError();
 
@@ -305,7 +307,7 @@ export class TransactionService {
 
     private async loadOwnedAccount(userId: number, id: number): Promise<BankAccount> {
         const account = await this.bankAccountRepository.loadById(id);
-        if (!account) throw new NotFoundError("Bank account does not exist!");
+        if (!account) throw new NotFoundError(ErrorCode.bankAccountNotFound, "Bank account does not exist!");
         if (account.userId !== userId) throw new ForbiddenError();
 
         return account;
@@ -313,12 +315,12 @@ export class TransactionService {
 
     private async ensureOwnedCategory(userId: number, id: number, type: CategoryTypeEnum): Promise<void> {
         const category = await this.categoryRepository.loadById(id);
-        if (!category) throw new NotFoundError("Category does not exist!");
+        if (!category) throw new NotFoundError(ErrorCode.categoryNotFound, "Category does not exist!");
         if (category.userId !== userId) throw new ForbiddenError();
         if (category.type !== type) {
-            throw new BusinessRuleError(type === CategoryTypeEnum.income
-                ? "A categoria precisa ser de receita."
-                : "A categoria precisa ser de gasto.");
+            throw type === CategoryTypeEnum.income
+                ? new BusinessRuleError(ErrorCode.categoryMustBeIncome, "A categoria precisa ser de receita.")
+                : new BusinessRuleError(ErrorCode.categoryMustBeExpense, "A categoria precisa ser de gasto.");
         }
     }
 }

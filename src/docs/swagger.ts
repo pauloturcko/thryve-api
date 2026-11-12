@@ -1,3 +1,5 @@
+import {ErrorCode, ValidationIssueCode} from "../errors";
+
 export const swaggerDocument = {
   openapi: "3.0.0",
   info: {
@@ -5,7 +7,8 @@ export const swaggerDocument = {
     version: "1.0.0",
     description:
       "Documentação da API do Thryve com autenticação e gerenciamento de cartões, contas bancárias, categorias e métodos de pagamento.\n\n" +
-      "Todo erro responde `{ message }`. Erros de validação (400) trazem também `errors: [{ path, message }]`, um item por campo inválido.",
+      "Todo erro responde `{ code, message }` (schema `ErrorResponse`). O `code` é estável e é o que o front usa para traduzir a mensagem no idioma do usuário; o `message` é só apoio para log e debug e pode mudar.\n\n" +
+      "Erros de validação (400, `code: VALIDATION_ERROR`) trazem também `errors: [{ path, code, message }]`, um item por campo inválido (schema `ValidationErrorResponse`). O `code` de cada item é o código nativo do Zod (`too_small`, `invalid_format`, `invalid_type`...) ou um código próprio para regras de negócio (`CARD_LIMIT_TOO_LOW`, `CARD_EXPIRED`...).",
   },
   servers: [
     {
@@ -27,6 +30,44 @@ export const swaggerDocument = {
       },
     },
     schemas: {
+      ErrorResponse: {
+        type: "object",
+        properties: {
+          code: {
+            type: "string",
+            enum: Object.values(ErrorCode),
+            description: "Código estável do erro, para o front traduzir",
+            example: ErrorCode.cardNotFound,
+          },
+          message: {
+            type: "string",
+            description: "Texto de apoio para log/debug. Não é contrato",
+            example: "Card does not exist!",
+          },
+        },
+      },
+      ValidationErrorResponse: {
+        type: "object",
+        properties: {
+          code: { type: "string", enum: [ErrorCode.validationError], example: ErrorCode.validationError },
+          message: { type: "string", example: "Validation error" },
+          errors: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                path: { type: "string", description: "Campo inválido (vazio quando o erro é do corpo inteiro)", example: "limit" },
+                code: {
+                  type: "string",
+                  description: `Código nativo do Zod ou um dos códigos próprios: ${Object.values(ValidationIssueCode).join(", ")}`,
+                  example: ValidationIssueCode.cardLimitTooLow,
+                },
+                message: { type: "string", example: "O limite deve ser no mínimo 100,00" },
+              },
+            },
+          },
+        },
+      },
 
       // ===== USUÁRIOS & AUTH =====
       UserRegisterInput: {

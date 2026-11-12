@@ -2,6 +2,7 @@ import {z} from "zod";
 import {CardTypeEnum} from "../../db/enum/card-type-enum";
 import {CardFlagEnum} from "../../db/enum/card-flag-enum";
 import {idValidator, nameValidator, moneyValidator} from "./common-validator";
+import {ValidationIssueCode} from "../../errors";
 
 export const cardHasCredit = (cardType: CardTypeEnum) => cardType !== CardTypeEnum.debit;
 
@@ -25,7 +26,10 @@ const cardFieldsValidator = z.object({
         }),
 
     limit: moneyValidator("Limite inválido")
-        .refine((value) => value >= 100, "O limite deve ser no mínimo 100,00")
+        .refine((value) => value >= 100, {
+            message: "O limite deve ser no mínimo 100,00",
+            params: {code: ValidationIssueCode.cardLimitTooLow},
+        })
         .transform((value) => value.toFixed(2))
         .nullable()
         .optional(),
@@ -46,7 +50,7 @@ const cardFieldsValidator = z.object({
                 1
             );
             return date >= currentMonthStart;
-        }, "Cartão inválido"),
+        }, {message: "Cartão inválido", params: {code: ValidationIssueCode.cardExpired}}),
 
     lastFourDigits: z
         .string()
@@ -56,7 +60,12 @@ const cardFieldsValidator = z.object({
 export const createCardValidator = cardFieldsValidator
     .superRefine((card, ctx) => {
         if (cardHasCredit(card.cardType) && card.limit == null) {
-            ctx.addIssue({code: "custom", path: ["limit"], message: limitRequiredMessage});
+            ctx.addIssue({
+                code: "custom",
+                path: ["limit"],
+                message: limitRequiredMessage,
+                params: {code: ValidationIssueCode.cardLimitRequired},
+            });
         }
     })
     .transform((card) => ({

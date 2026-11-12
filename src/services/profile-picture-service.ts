@@ -3,7 +3,7 @@ import { appDataSource } from "../db/config/data-source";
 import { ProfilePicture } from "../db/models/profile-picture";
 import { ProfilePictureRepository } from "../db/repository/profile-picture-repository";
 import { UsersRepository } from "../db/repository/users-repository";
-import { BusinessRuleError, NotFoundError } from "../errors";
+import { BusinessRuleError, NotFoundError, ErrorCode } from "../errors";
 import { PROFILE_PICTURE_CONTENT_TYPE, processProfilePicture } from "../utils/process-profile-picture";
 import { profilePictureIdValidator, uploadProfilePictureValidator } from "./validators/profile-picture-validator";
 
@@ -20,7 +20,7 @@ export class ProfilePictureService {
 
         const picture = await processProfilePicture(buffer)
         if (!picture) {
-            throw new BusinessRuleError("Envie uma imagem válida em JPG, PNG ou WebP.")
+            throw new BusinessRuleError(ErrorCode.profilePictureInvalidImage, "Envie uma imagem válida em JPG, PNG ou WebP.")
         }
 
         const id = randomUUID()
@@ -51,7 +51,7 @@ export class ProfilePictureService {
 
         const picture = await this.profilePictureRepository.loadById(id)
         if (!picture) {
-            throw new NotFoundError("Profile picture not found")
+            throw new NotFoundError(ErrorCode.profilePictureNotFound, "Profile picture not found")
         }
 
         return picture

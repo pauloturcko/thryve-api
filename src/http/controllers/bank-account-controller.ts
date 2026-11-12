@@ -1,6 +1,7 @@
 import {Request, Response} from "express";
 import {BankAccountService} from "../../services/bank-account-service";
 import {handleError} from "../helpers/handle-error";
+import {UnauthorizedError} from "../../errors";
 
 export class BankAccountController {
     private bankAccountService: BankAccountService;
@@ -13,7 +14,7 @@ export class BankAccountController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             const registeredBankAccount = await this.bankAccountService.create(userId, req.body);
@@ -31,7 +32,7 @@ export class BankAccountController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             const bankAccounts = await this.bankAccountService.loadAll(userId);
@@ -45,7 +46,7 @@ export class BankAccountController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             const bankAccount = await this.bankAccountService.update(userId, req.body);
@@ -59,7 +60,7 @@ export class BankAccountController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             await this.bankAccountService.delete(userId, req.body);

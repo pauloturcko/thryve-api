@@ -1,6 +1,7 @@
 import {Request, Response} from "express";
 import {CategoryService} from "../../services/category-service";
 import {handleError} from "../helpers/handle-error";
+import {UnauthorizedError} from "../../errors";
 
 export class CategoryController {
     private categoryService: CategoryService;
@@ -13,7 +14,7 @@ export class CategoryController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             const registeredCategory = await this.categoryService.create(userId, req.body);
@@ -31,7 +32,7 @@ export class CategoryController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             const categories = await this.categoryService.loadAll(userId);
@@ -45,7 +46,7 @@ export class CategoryController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             const category = await this.categoryService.update(userId, req.body);
@@ -59,7 +60,7 @@ export class CategoryController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             await this.categoryService.delete(userId, req.body);

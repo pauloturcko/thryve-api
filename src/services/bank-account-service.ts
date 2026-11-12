@@ -1,7 +1,7 @@
 import { BankAccount } from "../db/models/bank-account";
 import { BankAccountRepository } from "../db/repository/bank-account-repository";
 import { TransactionRepository } from "../db/repository/transaction-repository";
-import { ForbiddenError, GenericError, NotFoundError } from "../errors";
+import { ForbiddenError, GenericError, NotFoundError, ErrorCode } from "../errors";
 import { slugify } from "../utils/slugify";
 import { createBankAccountValidator, deleteBankAccountValidator, updateBankAccountValidator } from "./validators/bank-account-validator";
 
@@ -21,7 +21,7 @@ export class BankAccountService {
         })
 
         if (existingBankAccount) {
-            throw new GenericError("This bank account already exists!")
+            throw new GenericError(ErrorCode.bankAccountAlreadyExists, "This bank account already exists!")
         }
 
         return await this.bankAccountRepository.create({
@@ -41,7 +41,7 @@ export class BankAccountService {
         const parsedData = updateBankAccountValidator.parse(data)
 
         const bankAccount = await this.bankAccountRepository.loadById(parsedData.id)
-        if(!bankAccount) throw new NotFoundError("Bank account does not exist!")
+        if(!bankAccount) throw new NotFoundError(ErrorCode.bankAccountNotFound, "Bank account does not exist!")
         if(bankAccount.userId !== userId) throw new ForbiddenError();
 
         const updatedBankAccountData = {
@@ -57,7 +57,7 @@ export class BankAccountService {
         })
 
         if(existingBankAccount && existingBankAccount.id !== bankAccount.id) {
-            throw new GenericError("This bank account already exists!")
+            throw new GenericError(ErrorCode.bankAccountAlreadyExists, "This bank account already exists!")
         }
 
         return await this.bankAccountRepository.update(updatedBankAccountData)
@@ -67,10 +67,10 @@ export class BankAccountService {
         const {id} = deleteBankAccountValidator.parse(data)
 
         const bankAccount = await this.bankAccountRepository.loadById(id)
-        if(!bankAccount) throw new NotFoundError("Bank account does not exist!")
+        if(!bankAccount) throw new NotFoundError(ErrorCode.bankAccountNotFound, "Bank account does not exist!")
         if(bankAccount.userId !== userId) throw new ForbiddenError();
         if(await this.transactionRepository.existsWhere({bankAccountId: id})) {
-            throw new GenericError("This bank account has transactions and cannot be deleted!")
+            throw new GenericError(ErrorCode.bankAccountHasTransactions, "This bank account has transactions and cannot be deleted!")
         }
 
         return await this.bankAccountRepository.delete(id)
