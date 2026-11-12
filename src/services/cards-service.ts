@@ -7,7 +7,7 @@ import {
     limitRequiredMessage,
     updateCardValidator,
 } from "./validators/card-validator";
-import {BusinessRuleError, GenericError, NotFoundError, ForbiddenError} from "../errors";
+import {BusinessRuleError, GenericError, NotFoundError, ForbiddenError, ErrorCode} from "../errors";
 import {Cards} from "../db/models/cards";
 import {slugify} from "../utils/slugify";
 
@@ -28,7 +28,7 @@ export class CardsService {
         });
 
         if (existingCard) {
-            throw new GenericError('This card already exists!');
+            throw new GenericError(ErrorCode.cardAlreadyExists, 'This card already exists!');
         }
 
         return await this.cardsRepository.create({
@@ -51,7 +51,7 @@ export class CardsService {
         const parsedData = updateCardValidator.parse(data);
 
         const card = await this.cardsRepository.loadById(parsedData.id);
-        if (!card) throw new NotFoundError('Card does not exist!');
+        if (!card) throw new NotFoundError(ErrorCode.cardNotFound, 'Card does not exist!');
         if (card.userId !== userId) throw new ForbiddenError();
 
         const updatedCardData = {
@@ -63,7 +63,7 @@ export class CardsService {
         if (!cardHasCredit(updatedCardData.cardType)) {
             updatedCardData.limit = null;
         } else if (updatedCardData.limit == null) {
-            throw new BusinessRuleError(limitRequiredMessage);
+            throw new BusinessRuleError(ErrorCode.cardLimitRequired, limitRequiredMessage);
         }
 
         const existingCard = await this.cardsRepository.findByUniqueFields({
@@ -73,7 +73,7 @@ export class CardsService {
         });
 
         if (existingCard && existingCard.id !== card.id) {
-            throw new GenericError('This card already exists!');
+            throw new GenericError(ErrorCode.cardAlreadyExists, 'This card already exists!');
         }
 
         return await this.cardsRepository.update(updatedCardData);
@@ -83,10 +83,10 @@ export class CardsService {
         const {id} = deleteCardValidator.parse(data);
 
         const card = await this.cardsRepository.loadById(id);
-        if (!card) throw new NotFoundError('Card does not exist!');
+        if (!card) throw new NotFoundError(ErrorCode.cardNotFound, 'Card does not exist!');
         if (card.userId !== userId) throw new ForbiddenError();
         if (await this.transactionRepository.existsWhere({cardId: id})) {
-            throw new GenericError('This card has transactions and cannot be deleted!');
+            throw new GenericError(ErrorCode.cardHasTransactions, 'This card has transactions and cannot be deleted!');
         }
 
         return await this.cardsRepository.delete(id);

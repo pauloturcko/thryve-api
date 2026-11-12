@@ -73,16 +73,29 @@ Fluxo: `POST /profile-picture/upload` (multipart, campo `file`) → [multer](src
 
 ## Tratamento de erros
 
-Todo controller termina o `catch` com [`handleError`](src/http/helpers/handle-error.ts), o único lugar que traduz erro → status HTTP. Antes cada controller tinha seu próprio `if/else`, e eles divergiam (formato do 400, qual erro virava 409).
+Todo controller termina o `catch` com [`handleError`](src/http/helpers/handle-error.ts), o único lugar que traduz erro → status HTTP. Antes cada controller tinha seu próprio `if/else`, e eles divergiam (formato do 400, qual erro virava 409). Os controllers também não respondem 401 na mão: lançam `UnauthorizedError` dentro do `try`.
+
+Toda resposta de erro tem o formato `{ code, message }`:
 
 | Erro lançado | Status | Corpo |
 |---|---|---|
-| `ZodError` | 400 | `{ message: "Validation error", errors: [{ path, message }] }` |
-| `UnauthorizedError` | 401 | `{ message }` |
-| `ForbiddenError` | 403 | `{ message }` |
-| `NotFoundError` | 404 | `{ message }` |
-| `GenericError` | 409 | `{ message }` |
-| qualquer outro | 500 | `{ message: "Internal server error" }` — detalhe só no `console.error` |
+| `ZodError` | 400 | `{ code: "VALIDATION_ERROR", message, errors: [{ path, code, message }] }` |
+| `UnauthorizedError` | 401 | `{ code, message }` |
+| `ForbiddenError` | 403 | `{ code, message }` |
+| `NotFoundError` | 404 | `{ code, message }` |
+| `BusinessRuleError` | 422 | `{ code, message }` |
+| `GenericError` | 409 | `{ code, message }` |
+| `MulterError` | 413 / 400 | `{ code: "PROFILE_PICTURE_TOO_LARGE" \| "PROFILE_PICTURE_UPLOAD_ERROR", message }` |
+| qualquer outro | 500 | `{ code: "INTERNAL_ERROR", message: "Internal server error" }` — detalhe só no `console.error` |
+
+### Códigos de erro (`code`)
+
+- **Por quê**: o front traduz a interface (pt-BR, en, es) e a tradução não mora na API (ver "Preferências do usuário"). As mensagens que a API devolvia eram uma mistura de inglês e português e não davam pra traduzir com segurança. O `code` é o contrato; o `message` virou só apoio pra log e debug e pode mudar sem aviso.
+- Todos os erros conhecidos estendem [`AppError`](src/errors/app-error.ts), que exige um [`ErrorCode`](src/errors/error-code.ts). A classe define o status HTTP; o código define *qual* erro foi (ex.: `NotFoundError` com `CARD_NOT_FOUND` ou `CATEGORY_NOT_FOUND`).
+- **Nunca renomear um código existente**: quebra a tradução no front. Erro novo = código novo.
+- No 400 de validação, cada item de `errors` traz o código nativo do Zod (`too_small`, `invalid_format`...) ou, em regra própria (`refine`/`addIssue`), um [`ValidationIssueCode`](src/errors/error-code.ts) passado em `params: { code }`. Com `path` + `code` o front consegue montar a mensagem do campo.
+- O login com email ou senha errados responde 401 com `INVALID_CREDENTIALS` (e não `UNAUTHORIZED`), pra o front distinguir "credencial errada" de "sessão expirada". O `message` continua `"Unauthorized"` porque o front atual compara esse texto.
+- O Swagger gera a lista de códigos a partir dos próprios enums (`Object.values(ErrorCode)`), então a doc não desatualiza.
 
 - `GenericError` hoje significa conflito/duplicidade (email, cartão, conta, categoria), por isso 409. Erro de negócio que não seja conflito deve ganhar classe própria em vez de reaproveitar o `GenericError`.
 - O 500 nunca serializa o erro na resposta: um `QueryFailedError` do TypeORM carrega a query SQL, os parâmetros e o erro do Postgres, e antes isso ia inteiro pro cliente.

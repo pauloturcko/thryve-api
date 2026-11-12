@@ -3,7 +3,7 @@ import {verifyPassword} from "../utils/hash-password";
 import {generateToken} from "../utils/jwt";
 import {UsersRepository} from "../db/repository/users-repository";
 import {UsersService} from "./users-service";
-import {UnauthorizedError} from "../errors";
+import {UnauthorizedError, ErrorCode} from "../errors";
 
 export class AuthService {
     private userRepository: UsersRepository;
@@ -19,12 +19,12 @@ export class AuthService {
 
         const user = await this.userRepository.loadByEmail(email);
         if (!user) {
-            throw new UnauthorizedError();
+            throw new UnauthorizedError(ErrorCode.invalidCredentials);
         }
 
         const isPasswordValid = await verifyPassword(password, user.password);
         if (!isPasswordValid) {
-            throw new UnauthorizedError();
+            throw new UnauthorizedError(ErrorCode.invalidCredentials);
         }
 
         const token = generateToken(user.id);

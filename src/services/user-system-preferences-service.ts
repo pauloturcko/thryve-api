@@ -1,6 +1,6 @@
 import { UserSystemPreferencesRepository } from "../db/repository/user-system-preferences-repository";
 import { UserSystemPreferences } from "../db/DTO/user-system-preferences";
-import { NotFoundError } from "../errors";
+import { NotFoundError, ErrorCode } from "../errors";
 import { updateSystemPreferencesValidator } from "./validators/system-preferences-validators";
 
 export class UserSystemPreferencesService {
@@ -15,7 +15,7 @@ export class UserSystemPreferencesService {
 
         const preference = await this.userSystemPreferencesRepository.loadByUserId(userId)
         if (!preference) {
-            throw new NotFoundError("Preferences not found")
+            throw new NotFoundError(ErrorCode.preferencesNotFound, "Preferences not found")
         }
 
         Object.assign(preference, parsedData)

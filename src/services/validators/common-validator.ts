@@ -1,5 +1,6 @@
 import {z} from "zod";
 import {slugify} from "../../utils/slugify";
+import {ValidationIssueCode} from "../../errors";
 
 export const idValidator = z.number().int().positive();
 
@@ -8,7 +9,10 @@ export const nameValidator = z
     .trim()
     .overwrite((value) => value.replace(/\s+/g, " "))
     .min(3)
-    .refine((value) => slugify(value).length > 0, "O nome precisa ter letras ou números");
+    .refine((value) => slugify(value).length > 0, {
+        message: "O nome precisa ter letras ou números",
+        params: {code: ValidationIssueCode.nameWithoutAlphanumeric},
+    });
 
 // Aceita formato BR (8.000,00) e US (8,000.00), com ou sem separador de milhar e casas decimais.
 const moneyRegex = /^-?(\d{1,3}(\.\d{3})*(,\d{1,2})?|\d{1,3}(,\d{3})*(\.\d{1,2})?|\d+([.,]\d{1,2})?)$/;
@@ -28,4 +32,7 @@ export const moneyValidator = (message: string) => z
     .regex(moneyRegex, message)
     .transform(parseMoney)
     // limit e balance são numeric(12,2): acima disso o Postgres rejeita o insert e a API devolveria 500.
-    .refine((value) => Math.abs(value) < 1e10, "O valor máximo é 9.999.999.999,99");
+    .refine((value) => Math.abs(value) < 1e10, {
+        message: "O valor máximo é 9.999.999.999,99",
+        params: {code: ValidationIssueCode.amountTooLarge},
+    });

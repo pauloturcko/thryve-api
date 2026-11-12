@@ -1,6 +1,7 @@
 import {Request, Response} from "express";
 import {CardsService} from "../../services/cards-service";
 import {handleError} from "../helpers/handle-error";
+import {UnauthorizedError} from "../../errors";
 
 export class CardsController {
     private cardService: CardsService;
@@ -14,7 +15,7 @@ export class CardsController {
             const userId = req.user?.id;
 
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             const registeredCard = await this.cardService.create(userId, req.body);
@@ -32,7 +33,7 @@ export class CardsController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             const cards = await this.cardService.loadAll(userId)
@@ -46,7 +47,7 @@ export class CardsController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             const card = await this.cardService.update(userId, req.body)
@@ -60,7 +61,7 @@ export class CardsController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             await this.cardService.delete(userId, req.body);

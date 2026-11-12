@@ -1,6 +1,6 @@
 import { UserPaymentPreferencesRepository } from "../db/repository/user-payment-preferences-repository";
 import { UsersRepository } from "../db/repository/users-repository";
-import { NotFoundError, UnauthorizedError } from "../errors";
+import { NotFoundError, UnauthorizedError, ErrorCode } from "../errors";
 import { togglePaymentPreferenceValidator } from "./validators/payment-methods-validator";
 
 export class PaymentMethodsService {
@@ -30,7 +30,7 @@ export class PaymentMethodsService {
         const preference = await this.userPaymentPreferencesRepository.findByUserAndMethod(userId, paymentMethodId)
 
         if(!preference) {
-            throw new NotFoundError("Payment method not found")
+            throw new NotFoundError(ErrorCode.paymentMethodNotFound, "Payment method not found")
         }
 
         preference.isActive = !preference.isActive

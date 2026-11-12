@@ -1,6 +1,7 @@
 import {Request, Response} from "express";
 import {UserSystemPreferencesService} from "../../services/user-system-preferences-service";
 import {handleError} from "../helpers/handle-error";
+import {UnauthorizedError} from "../../errors";
 
 export class SystemPreferencesController {
     private userSystemPreferencesService: UserSystemPreferencesService
@@ -13,7 +14,7 @@ export class SystemPreferencesController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             const systemPreferences = await this.userSystemPreferencesService.updatePreference(userId, req.body)

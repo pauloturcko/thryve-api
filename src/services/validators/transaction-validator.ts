@@ -3,9 +3,13 @@ import {ExpenseKindEnum} from "../../db/enum/expense-kind-enum";
 import {IncomeKindEnum} from "../../db/enum/income-kind-enum";
 import {TransactionStatusEnum} from "../../db/enum/transaction-status-enum";
 import {idValidator, moneyValidator} from "./common-validator";
+import {ValidationIssueCode} from "../../errors";
 
 const amountValidator = moneyValidator("Valor inválido")
-    .refine((value) => value > 0, "O valor deve ser maior que zero")
+    .refine((value) => value > 0, {
+        message: "O valor deve ser maior que zero",
+        params: {code: ValidationIssueCode.amountNotPositive},
+    })
     .transform((value) => value.toFixed(2));
 
 const dateValidator = z
@@ -16,7 +20,7 @@ const dateValidator = z
         const date = new Date(year, month - 1, day);
 
         return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
-    }, "Data inválida");
+    }, {message: "Data inválida", params: {code: ValidationIssueCode.invalidDate}});
 
 export const createIncomeValidator = z.object({
     incomeKind: z.enum(IncomeKindEnum),

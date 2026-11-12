@@ -1,7 +1,7 @@
 import {UsersRepository} from "../db/repository/users-repository";
 import {registerValidator} from "./validators/register-validator";
 import {Users} from "../db/models/users";
-import {GenericError, UnauthorizedError} from "../errors";
+import {GenericError, UnauthorizedError, ErrorCode} from "../errors";
 import {hashPassword} from "../utils/hash-password";
 import { PaymentMethodsRepository } from "../db/repository/payment-methods-repository";
 import { UserPaymentPreferencesRepository } from "../db/repository/user-payment-preferences-repository";
@@ -36,7 +36,7 @@ export class UsersService {
 
         const emailInUse = await this.userRepository.loadByEmail(email);
         if (emailInUse) {
-            throw new GenericError('Email already exists');
+            throw new GenericError(ErrorCode.emailAlreadyExists, 'Email already exists');
         }
 
         const hashedPassword = await hashPassword(password);

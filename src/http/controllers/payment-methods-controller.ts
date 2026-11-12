@@ -1,6 +1,7 @@
 import {PaymentMethodsService} from "../../services/payment-methods-service";
 import {Request, Response} from "express";
 import {handleError} from "../helpers/handle-error";
+import {UnauthorizedError} from "../../errors";
 
 export class PaymentMethodsController {
     private paymentMethodsService: PaymentMethodsService
@@ -13,7 +14,7 @@ export class PaymentMethodsController {
         try {
             const userId = req.user?.id;
             if (!userId) {
-                return res.status(401).json({message: "Unauthorized"});
+                throw new UnauthorizedError();
             }
 
             const preferences = await this.paymentMethodsService.getUserPreferences(userId)
@@ -29,7 +30,7 @@ export class PaymentMethodsController {
         try {
             const userId = req.user?.id;
             if(!userId) {
-                return res.status(401).json({message: "Unauthorized"})
+                throw new UnauthorizedError();
             }
 
             const updated = await this.paymentMethodsService.togglePreference(userId, req.params)
