@@ -4,6 +4,16 @@ import {ValidationIssueCode} from "../../errors";
 
 export const idValidator = z.number().int().positive();
 
+export const dateValidator = z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida")
+    .refine((value) => {
+        const [year, month, day] = value.split("-").map(Number);
+        const date = new Date(year, month - 1, day);
+
+        return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+    }, {message: "Data inválida", params: {code: ValidationIssueCode.invalidDate}});
+
 export const nameValidator = z
     .string()
     .trim()
