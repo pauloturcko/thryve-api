@@ -60,6 +60,27 @@ Fluxo: `POST /profile-picture/upload` (multipart, campo `file`) → [multer](src
 - O upload é um `upsert` com `ON CONFLICT (user_id)`: troca a foto num comando só, sem estourar a constraint única quando chegam dois uploads ao mesmo tempo.
 - Atenção: com `logging: true` no [data-source.ts](src/db/config/data-source.ts), o TypeORM loga os parâmetros do INSERT, ou seja, os bytes da imagem (~80KB de log por upload). Vale desligar o log de queries em produção.
 
+## Investimentos
+
+Duas tabelas: `investments` (o título: instituição, nome, rentabilidade, vencimento, status) e `investment_movements` (o histórico: aporte, resgate e rendimento).
+
+- **Valores não são colunas.** Valor inicial, investido, atual, rendimento total, rendimento em % e rendimento do mês são calculados a partir dos lançamentos em [`InvestmentService`](src/services/investment-service.ts). Guardar o "valor atual" numa coluna exigiria mantê-la sincronizada a cada lançamento editado ou apagado; somando na leitura não tem como divergir. O volume é de uso pessoal, então somar em memória é suficiente.
+- **Rendimento não é "final − inicial".** Com aportes no meio, essa conta mistura dinheiro novo com ganho. O rendimento é a soma dos lançamentos tipo 2, e o percentual é `rendimento / total aportado`.
+- **O aporte inicial é um lançamento comum** (tipo 0), criado junto com o investimento. Assim editar ou apagar ele segue as mesmas regras de saldo dos outros aportes, e não existe uma coluna `initial_amount` para ficar duplicada.
+- **Saldo da conta**: aporte sai, resgate volta, rendimento não mexe (o dinheiro continua dentro do título). Vale a mesma regra de receitas e gastos: lançamento com data anterior ao cadastro da conta não altera o saldo, porque o saldo inicial informado já reflete ele. Investimento não vira gasto nem receita em `transactions`; para gráficos de saída, somar os aportes de `investment_movements` à parte.
+- **`POST /investments/update-value`** é o fluxo do dia a dia: o usuário informa quanto o título vale hoje e a API grava a diferença como rendimento (pode ser negativo).
+- **Sem vínculo com metas na v1.** Um mesmo título (ex.: Tesouro) costuma servir a várias metas ao mesmo tempo, e as metas nem sempre têm dinheiro guardado. Se voltar, o caminho mais simples é uma coluna `goal_id` nullable em `investments`.
+- **Rentabilidade estruturada** em três campos: `index_type` (pré, Selic, CDI, IPCA, sem indexador), `index_percentage` (o 110 de "110% do CDI") e `spread_rate` (o 0,10 de "Selic + 0,10%", o 6 de "IPCA + 6%", a taxa do pré). Texto livre não deixaria calcular.
+
+### Projeção pelas taxas do Banco Central
+
+- **Fonte**: API SGS do Banco Central (pública, sem chave), em [central-bank-client.ts](src/services/central-bank-client.ts). Séries 11 (Selic diária), 12 (CDI diário) e 433 (IPCA mensal). Séries diárias exigem `dataInicial`/`dataFinal` com janela de até 10 anos, e intervalo sem dado publicado responde **404**, não lista vazia.
+- **Cache em `index_rates`**: o cálculo nunca chama o BC direto. [`IndexRateService.ensureSynced`](src/services/index-rate-service.ts) busca só o que falta, no máximo a cada 6h por índice, e na leitura (sem cron: com um usuário só, a primeira tela do dia sincroniza). Sempre mantém pelo menos ~13 meses (IPCA de 12 meses, e uma primeira sincronização num sábado não volta vazia). Falha do BC só gera log: a conta segue com o que está salvo e `ratesUpdatedUntil` mostra até quando.
+- **Calendário de dias úteis = datas da série da Selic**: o BC só publica em dia útil, então não precisa de tabela de feriados. Dias depois do último publicado (hoje, atraso de publicação) contam como dias de semana com a última taxa conhecida. O IPCA do mês ainda não divulgado repete o último mês.
+- **Fórmulas por dia útil** (base 252), em [investment-projection.ts](src/services/investment-projection.ts): Selic/CDI `(1 + taxa_dia × p) × (1 + spread)^(1/252)`; IPCA `(1 + ipca_mês × p)^(1/dias_úteis_do_mês) × (1 + spread)^(1/252)`; pré `(1 + taxa)^(1/252)`. Conferido contra cálculo independente com os dados do BC (CDB 110% CDI em 12 meses com 6 mudanças de Selic, Tesouro IPCA+).
+- **O valor informado pelo usuário é a verdade, a projeção só estima a partir dele.** O último rendimento lançado (via `update-value`) é o último valor confirmado; a estimativa corrige esse valor e cada aporte/resgate posterior desde a data dele. A projeção nunca grava lançamento: um rendimento estimado salvo ficaria errado na próxima conferência. Por isso a resposta tem os dois lados: `currentAmount` (confirmado) e `estimatedAmount` (projetado).
+- **Valor bruto**: sem IR regressivo, IOF nem taxa de custódia da B3. O líquido exige IR por aporte conforme o prazo, e fica para uma próxima fase.
+
 ## Validação (Zod) e normalização de dados
 
 - **O `.parse()` fica no Service, nunca no Controller.** O service recebe `data: unknown` e valida na primeira linha; o controller só repassa `req.body`/`req.params`. Assim qualquer chamador do service (rota hoje; job, script ou teste amanhã) passa pela mesma validação sem precisar lembrar. Nas primeiras versões (#0001–#0003) o parse ficava no controller; foi movido de propósito no #0004/#0005.

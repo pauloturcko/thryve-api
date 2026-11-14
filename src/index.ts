@@ -16,6 +16,8 @@ import { expenseRouter } from "./http/routes/expense-routes";
 import { systemPreferencesRouter } from "./http/routes/system-preferences-routes";
 import { profilePictureRouter } from "./http/routes/profile-picture-routes";
 import { goalRouter } from "./http/routes/goal-routes";
+import { investmentRouter } from "./http/routes/investment-routes";
+import { indexRateRouter } from "./http/routes/index-rate-routes";
 import { ErrorCode } from "./errors";
 
 const app = express();
@@ -56,6 +58,8 @@ app.use("/expenses", expenseRouter);
 app.use("/system-preferences", systemPreferencesRouter);
 app.use("/profile-picture", profilePictureRouter);
 app.use("/goals", goalRouter);
+app.use("/investments", investmentRouter);
+app.use("/indexes", indexRateRouter);
 
 app.use((error: unknown, req: Request, res: Response, next: NextFunction) => {
   if (error instanceof SyntaxError && "type" in error && error.type === "entity.parse.failed") {
