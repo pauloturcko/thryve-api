@@ -34,6 +34,7 @@ export enum ErrorCode {
     bankAccountNotFound = "BANK_ACCOUNT_NOT_FOUND",
     bankAccountHasTransactions = "BANK_ACCOUNT_HAS_TRANSACTIONS",
     bankAccountRequired = "BANK_ACCOUNT_REQUIRED",
+    bankAccountHasInvestments = "BANK_ACCOUNT_HAS_INVESTMENTS",
 
     // Categorias
     categoryAlreadyExists = "CATEGORY_ALREADY_EXISTS",
@@ -56,6 +57,15 @@ export enum ErrorCode {
     // Metas
     goalAlreadyExists = "GOAL_ALREADY_EXISTS",
     goalNotFound = "GOAL_NOT_FOUND",
+
+    // Investimentos
+    investmentAlreadyExists = "INVESTMENT_ALREADY_EXISTS",
+    investmentNotFound = "INVESTMENT_NOT_FOUND",
+    investmentMovementNotFound = "INVESTMENT_MOVEMENT_NOT_FOUND",
+    investmentNegativeBalance = "INVESTMENT_NEGATIVE_BALANCE",
+    investmentMovementAmountNotPositive = "INVESTMENT_MOVEMENT_AMOUNT_NOT_POSITIVE",
+    investmentValueUnchanged = "INVESTMENT_VALUE_UNCHANGED",
+    prefixedRateRequired = "PREFIXED_RATE_REQUIRED",
 }
 
 // Códigos usados em `errors[].code` do 400 de validação, além dos códigos nativos do Zod
@@ -65,6 +75,8 @@ export enum ValidationIssueCode {
     amountTooLarge = "AMOUNT_TOO_LARGE",
     amountNotPositive = "AMOUNT_NOT_POSITIVE",
     amountNegative = "AMOUNT_NEGATIVE",
+    amountZero = "AMOUNT_ZERO",
+    rateOutOfRange = "RATE_OUT_OF_RANGE",
     invalidDate = "INVALID_DATE",
     cardLimitTooLow = "CARD_LIMIT_TOO_LOW",
     cardLimitRequired = "CARD_LIMIT_REQUIRED",

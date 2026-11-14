@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { toDateString } from "../utils/date";
+import { monthRange, toDateString } from "../utils/date";
 import { appDataSource } from "../db/config/data-source";
 import { BankAccount } from "../db/models/bank-account";
 import { Transaction } from "../db/models/transaction";
@@ -25,13 +25,6 @@ import {
     updateExpenseValidator,
     updateIncomeValidator,
 } from "./validators/transaction-validator";
-
-const monthRange = (month: string) => {
-    const [year, monthNumber] = month.split("-").map(Number);
-    const lastDay = new Date(year, monthNumber, 0).getDate();
-
-    return {startDate: `${month}-01`, endDate: `${month}-${String(lastDay).padStart(2, "0")}`};
-};
 
 const addMonths = (date: string, months: number) => {
     const [year, month, day] = date.split("-").map(Number);

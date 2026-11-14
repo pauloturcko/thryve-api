@@ -500,6 +500,101 @@ export const swaggerDocument = {
           id: { type: "integer", description: "ID da meta a ser removida", example: 1 },
         },
       },
+      // ===== INVESTIMENTOS =====
+      InvestmentRegisterInput: {
+        type: "object",
+        required: ["bankAccountId", "name", "initialAmount", "date"],
+        properties: {
+          bankAccountId: { type: "integer", example: 1, description: "Conta (instituição) onde o investimento foi feito. O aporte inicial sai do saldo dela" },
+          name: { type: "string", example: "Tesouro Selic 2029", description: "Título do investimento (mínimo de 3 caracteres, único por usuário)" },
+          indexType: {
+            type: "integer",
+            enum: [0, 1, 2, 3, 4],
+            description: "Indexador: 0 = Pré-fixado, 1 = Selic, 2 = CDI, 3 = IPCA, 4 = Sem indexador (renda variável, só atualização manual)",
+            example: 1,
+          },
+          indexPercentage: {
+            type: "string",
+            example: "100",
+            description: "Percentual do índice, de 0 a 1000 (opcional, padrão 100). Ex.: 110 em '110% do CDI'. Ignorado no pré-fixado e sem indexador",
+          },
+          spreadRate: {
+            type: "string",
+            example: "0,10",
+            description: "Taxa ao ano somada ao índice, em % (opcional, padrão 0, aceita negativo). Ex.: 0,10 em 'Selic + 0,10%', 6 em 'IPCA + 6%'. No pré-fixado é a taxa do título e é obrigatória (> 0)",
+          },
+          initialAmount: { type: "string", example: "1.000,00", description: "Aporte inicial, maior que zero. Vira o primeiro lançamento (tipo 0) do investimento" },
+          date: { type: "string", example: "2026-11-14", description: "Data do aporte inicial (AAAA-MM-DD). Se for anterior ao cadastro da conta, não mexe no saldo" },
+          maturityDate: { type: "string", nullable: true, example: "2029-03-01", description: "Vencimento (opcional)" },
+          notes: { type: "string", nullable: true, example: null, description: "Observação livre (até 500 caracteres)" },
+        },
+      },
+      InvestmentUpdateInput: {
+        type: "object",
+        required: ["id"],
+        properties: {
+          id: { type: "integer", description: "ID do investimento (Obrigatório)", example: 1 },
+          bankAccountId: { type: "integer", description: "Nova conta (Opcional). Todos os aportes e resgates passam a contar no saldo da conta nova", example: 2 },
+          name: { type: "string", description: "Novo título (Opcional)", example: "Tesouro Selic 2031" },
+          indexType: { type: "integer", enum: [0, 1, 2, 3, 4], description: "Novo indexador (Opcional)", example: 2 },
+          indexPercentage: { type: "string", description: "Novo percentual do índice (Opcional)", example: "110" },
+          spreadRate: { type: "string", description: "Nova taxa ao ano somada ao índice (Opcional)", example: "0" },
+          maturityDate: { type: "string", nullable: true, description: "Novo vencimento (Opcional)", example: "2031-03-01" },
+          status: { type: "integer", enum: [0, 1], description: "0 = Ativo, 1 = Resgatado (Opcional)", example: 1 },
+          notes: { type: "string", nullable: true, description: "Nova observação (Opcional)", example: null },
+        },
+      },
+      InvestmentDeleteInput: {
+        type: "object",
+        required: ["id"],
+        properties: {
+          id: { type: "integer", description: "ID do investimento a ser removido", example: 1 },
+        },
+      },
+      InvestmentUpdateValueInput: {
+        type: "object",
+        required: ["investmentId", "currentAmount", "date"],
+        properties: {
+          investmentId: { type: "integer", example: 1 },
+          currentAmount: { type: "string", example: "1.200,00", description: "Quanto o investimento vale hoje (pode ser 0). A diferença para o valor atual vira um lançamento de rendimento (tipo 2), positivo ou negativo" },
+          date: { type: "string", example: "2026-11-30", description: "Data do rendimento (AAAA-MM-DD)" },
+          notes: { type: "string", nullable: true, example: null },
+        },
+      },
+      InvestmentMovementRegisterInput: {
+        type: "object",
+        required: ["investmentId", "type", "amount", "date"],
+        properties: {
+          investmentId: { type: "integer", example: 1 },
+          type: {
+            type: "integer",
+            enum: [0, 1, 2],
+            description: "0 = Aporte (sai da conta), 1 = Resgate (volta para a conta), 2 = Rendimento (não mexe na conta)",
+            example: 0,
+          },
+          amount: { type: "string", example: "500,00", description: "Aporte e resgate maiores que zero; rendimento pode ser negativo, mas não zero" },
+          date: { type: "string", example: "2026-11-20", description: "AAAA-MM-DD" },
+          notes: { type: "string", nullable: true, example: null },
+        },
+      },
+      InvestmentMovementUpdateInput: {
+        type: "object",
+        required: ["id"],
+        properties: {
+          id: { type: "integer", description: "ID do lançamento (Obrigatório)", example: 2 },
+          type: { type: "integer", enum: [0, 1, 2], description: "Novo tipo (Opcional)", example: 1 },
+          amount: { type: "string", description: "Novo valor (Opcional)", example: "300,00" },
+          date: { type: "string", description: "Nova data (Opcional)", example: "2026-11-21" },
+          notes: { type: "string", nullable: true, description: "Nova observação (Opcional)", example: null },
+        },
+      },
+      InvestmentMovementDeleteInput: {
+        type: "object",
+        required: ["id"],
+        properties: {
+          id: { type: "integer", description: "ID do lançamento a ser removido. Se era aporte ou resgate, o saldo da conta é desfeito", example: 2 },
+        },
+      },
       IncomeRegisterInput: {
         type: "object",
         required: ["incomeKind", "amount", "date", "categoryId", "bankAccountId"],
@@ -1463,6 +1558,210 @@ export const swaggerDocument = {
           401: { description: "Não autorizado" },
           403: { description: "A meta pertence a outro usuário" },
           404: { description: "Meta não encontrada (GOAL_NOT_FOUND)" },
+        },
+      },
+    },
+
+    // ------------------ ROTAS DE INVESTIMENTOS ------------------
+    "/investments/register": {
+      post: {
+        tags: ["Investimentos"],
+        summary: "Cadastrar um investimento com o aporte inicial",
+        description: "Cria o investimento e um lançamento de aporte (tipo 0) com o initialAmount, descontando o valor do saldo da conta",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/InvestmentRegisterInput" } } },
+        },
+        responses: {
+          201: { description: "Investimento registrado com sucesso (com os valores calculados)" },
+          400: { description: "Erro de validação" },
+          401: { description: "Não autorizado" },
+          403: { description: "A conta pertence a outro usuário" },
+          404: { description: "Conta não encontrada (BANK_ACCOUNT_NOT_FOUND)" },
+          409: { description: "Já existe um investimento com o mesmo nome (INVESTMENT_ALREADY_EXISTS)" },
+          422: { description: "Pré-fixado sem taxa (PREFIXED_RATE_REQUIRED)" },
+        },
+      },
+    },
+    "/investments/user-investments": {
+      get: {
+        tags: ["Investimentos"],
+        summary: "Listar os investimentos do usuário logado, com os valores calculados",
+        description:
+          "Cada item traz, calculados a partir dos lançamentos: startDate (data do primeiro lançamento), initialAmount (primeiro aporte), " +
+          "investedAmount (aportes - resgates), yieldAmount (soma dos rendimentos), yieldPercentage (rendimento / total aportado * 100), " +
+          "currentAmount (investido + rendimentos) e monthYield (rendimentos do mês do filtro `month`, ou do mês atual).\n\n" +
+          "Projeção pelas taxas do Banco Central (valor bruto, sem IR, IOF nem custódia): estimatedAmount (valor estimado para hoje, " +
+          "partindo do último valor confirmado via update-value e corrigindo cada aporte ou resgate posterior desde a data dele), " +
+          "estimatedYield (estimatedAmount - currentAmount), currentAnnualRate (taxa efetiva ao ano hoje, em %; null sem indexador) " +
+          "e ratesUpdatedUntil (último dia, ou mês no IPCA, publicado pelo BC; dias e meses ainda não publicados repetem a última taxa). " +
+          "As taxas são sincronizadas com o BC no máximo a cada 6 horas; se o BC estiver fora, usa as já salvas",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { in: "query", name: "month", required: false, schema: { type: "string", example: "2026-11" }, description: "Mês usado no monthYield (AAAA-MM). Padrão: mês atual" },
+          { in: "query", name: "status", required: false, schema: { type: "integer", enum: [0, 1] }, description: "0 = Ativo, 1 = Resgatado" },
+          { in: "query", name: "bankAccountId", required: false, schema: { type: "integer" }, description: "Filtra pela conta (instituição)" },
+        ],
+        responses: {
+          200: { description: "Lista de investimentos retornada com sucesso" },
+          400: { description: "Filtro inválido" },
+          401: { description: "Não autorizado" },
+        },
+      },
+    },
+    "/investments/update": {
+      patch: {
+        tags: ["Investimentos"],
+        summary: "Atualizar dados de um investimento",
+        description: "Valores não se editam aqui: use os lançamentos ou o /investments/update-value",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/InvestmentUpdateInput" } } },
+        },
+        responses: {
+          200: { description: "Investimento atualizado com sucesso" },
+          400: { description: "Erro de validação" },
+          401: { description: "Não autorizado" },
+          403: { description: "O investimento ou a conta pertencem a outro usuário" },
+          404: { description: "Investimento (INVESTMENT_NOT_FOUND) ou conta (BANK_ACCOUNT_NOT_FOUND) não encontrados" },
+          409: { description: "Já existe um investimento com o mesmo nome (INVESTMENT_ALREADY_EXISTS)" },
+          422: { description: "Pré-fixado sem taxa (PREFIXED_RATE_REQUIRED)" },
+        },
+      },
+    },
+    "/investments/delete": {
+      delete: {
+        tags: ["Investimentos"],
+        summary: "Remover um investimento e todos os lançamentos dele",
+        description: "Desfaz no saldo da conta todos os aportes e resgates, como se o investimento nunca tivesse existido",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/InvestmentDeleteInput" } } },
+        },
+        responses: {
+          200: { description: "Investimento excluído com sucesso" },
+          400: { description: "ID ausente ou inválido" },
+          401: { description: "Não autorizado" },
+          403: { description: "O investimento pertence a outro usuário" },
+          404: { description: "Investimento não encontrado (INVESTMENT_NOT_FOUND)" },
+        },
+      },
+    },
+    "/investments/update-value": {
+      post: {
+        tags: ["Investimentos"],
+        summary: "Informar quanto o investimento vale hoje",
+        description: "Calcula a diferença para o valor atual e grava como rendimento (tipo 2). Não mexe no saldo da conta",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/InvestmentUpdateValueInput" } } },
+        },
+        responses: {
+          201: { description: "Rendimento registrado com sucesso" },
+          400: { description: "Erro de validação" },
+          401: { description: "Não autorizado" },
+          403: { description: "O investimento pertence a outro usuário" },
+          404: { description: "Investimento não encontrado (INVESTMENT_NOT_FOUND)" },
+          422: { description: "O valor informado é igual ao atual (INVESTMENT_VALUE_UNCHANGED)" },
+        },
+      },
+    },
+    "/investments/movements/register": {
+      post: {
+        tags: ["Investimentos"],
+        summary: "Registrar um aporte, resgate ou rendimento",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/InvestmentMovementRegisterInput" } } },
+        },
+        responses: {
+          201: { description: "Lançamento registrado com sucesso" },
+          400: { description: "Erro de validação" },
+          401: { description: "Não autorizado" },
+          403: { description: "O investimento pertence a outro usuário" },
+          404: { description: "Investimento não encontrado (INVESTMENT_NOT_FOUND)" },
+          422: { description: "O investimento ficaria com valor negativo (INVESTMENT_NEGATIVE_BALANCE)" },
+        },
+      },
+    },
+    "/investments/movements": {
+      get: {
+        tags: ["Investimentos"],
+        summary: "Listar os lançamentos de investimento do usuário logado",
+        description: "Ordenados do mais recente para o mais antigo",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { in: "query", name: "investmentId", required: false, schema: { type: "integer" }, description: "Só os lançamentos desse investimento" },
+          { in: "query", name: "type", required: false, schema: { type: "integer", enum: [0, 1, 2] }, description: "0 = Aporte, 1 = Resgate, 2 = Rendimento" },
+          { in: "query", name: "month", required: false, schema: { type: "string", example: "2026-11" }, description: "Mês (AAAA-MM)" },
+        ],
+        responses: {
+          200: { description: "Lista de lançamentos retornada com sucesso" },
+          400: { description: "Filtro inválido" },
+          401: { description: "Não autorizado" },
+          403: { description: "O investimento pertence a outro usuário" },
+          404: { description: "Investimento não encontrado (INVESTMENT_NOT_FOUND)" },
+        },
+      },
+    },
+    "/investments/movements/update": {
+      patch: {
+        tags: ["Investimentos"],
+        summary: "Atualizar um lançamento de investimento",
+        description: "O efeito antigo no saldo da conta é desfeito e o novo é aplicado",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/InvestmentMovementUpdateInput" } } },
+        },
+        responses: {
+          200: { description: "Lançamento atualizado com sucesso" },
+          400: { description: "Erro de validação" },
+          401: { description: "Não autorizado" },
+          403: { description: "O lançamento pertence a outro usuário" },
+          404: { description: "Lançamento não encontrado (INVESTMENT_MOVEMENT_NOT_FOUND)" },
+          422: { description: "Valor negativo em aporte ou resgate (INVESTMENT_MOVEMENT_AMOUNT_NOT_POSITIVE) ou investimento ficaria negativo (INVESTMENT_NEGATIVE_BALANCE)" },
+        },
+      },
+    },
+    "/investments/movements/delete": {
+      delete: {
+        tags: ["Investimentos"],
+        summary: "Remover um lançamento de investimento",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/InvestmentMovementDeleteInput" } } },
+        },
+        responses: {
+          200: { description: "Lançamento excluído com sucesso" },
+          400: { description: "ID ausente ou inválido" },
+          401: { description: "Não autorizado" },
+          403: { description: "O lançamento pertence a outro usuário" },
+          404: { description: "Lançamento não encontrado (INVESTMENT_MOVEMENT_NOT_FOUND)" },
+          422: { description: "O investimento ficaria com valor negativo (INVESTMENT_NEGATIVE_BALANCE)" },
+        },
+      },
+    },
+
+    // ------------------ ROTAS DE ÍNDICES ------------------
+    "/indexes/current": {
+      get: {
+        tags: ["Investimentos"],
+        summary: "Taxas mais recentes de Selic, CDI e IPCA (Banco Central)",
+        description:
+          "selic e cdi: { date, dailyRate (% ao dia), annualRate (% a.a., base 252) }. " +
+          "ipca: { month (AAAA-MM), monthlyRate (%), last12MonthsRate (% acumulado em 12 meses) }. " +
+          "Qualquer um vem null se o BC nunca respondeu. Serve para a prévia da taxa no formulário de investimento",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: "Taxas retornadas com sucesso" },
+          401: { description: "Não autorizado" },
         },
       },
     },

@@ -1,6 +1,7 @@
 import { BankAccount } from "../db/models/bank-account";
 import { BankAccountRepository } from "../db/repository/bank-account-repository";
 import { TransactionRepository } from "../db/repository/transaction-repository";
+import { InvestmentRepository } from "../db/repository/investment-repository";
 import { ForbiddenError, GenericError, NotFoundError, ErrorCode } from "../errors";
 import { slugify } from "../utils/slugify";
 import { createBankAccountValidator, deleteBankAccountValidator, updateBankAccountValidator } from "./validators/bank-account-validator";
@@ -8,6 +9,7 @@ import { createBankAccountValidator, deleteBankAccountValidator, updateBankAccou
 export class BankAccountService {
     private bankAccountRepository = new BankAccountRepository();
     private transactionRepository = new TransactionRepository();
+    private investmentRepository = new InvestmentRepository();
 
     async create(userId: number, data: unknown) {
         const {name, accountType, balance} = createBankAccountValidator.parse(data)
@@ -71,6 +73,9 @@ export class BankAccountService {
         if(bankAccount.userId !== userId) throw new ForbiddenError();
         if(await this.transactionRepository.existsWhere({bankAccountId: id})) {
             throw new GenericError(ErrorCode.bankAccountHasTransactions, "This bank account has transactions and cannot be deleted!")
+        }
+        if(await this.investmentRepository.existsWhere({bankAccountId: id})) {
+            throw new GenericError(ErrorCode.bankAccountHasInvestments, "This bank account has investments and cannot be deleted!")
         }
 
         return await this.bankAccountRepository.delete(id)
