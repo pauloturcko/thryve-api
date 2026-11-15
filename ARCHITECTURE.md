@@ -81,6 +81,22 @@ Duas tabelas: `investments` (o título: instituição, nome, rentabilidade, venc
 - **O valor informado pelo usuário é a verdade, a projeção só estima a partir dele.** O último rendimento lançado (via `update-value`) é o último valor confirmado; a estimativa corrige esse valor e cada aporte/resgate posterior desde a data dele. A projeção nunca grava lançamento: um rendimento estimado salvo ficaria errado na próxima conferência. Por isso a resposta tem os dois lados: `currentAmount` (confirmado) e `estimatedAmount` (projetado).
 - **Valor bruto**: sem IR regressivo, IOF nem taxa de custódia da B3. O líquido exige IR por aporte conforme o prazo, e fica para uma próxima fase.
 
+## Relatórios em PDF
+
+Fluxo: [`ReportService`](src/services/report-service.ts) valida filtros → [`report-data.ts`](src/services/reports/report-data.ts) agrega os lançamentos (em centavos) → [`report-template.ts`](src/services/reports/report-template.ts) monta o HTML → [`pdf-renderer.ts`](src/services/reports/pdf-renderer.ts) imprime em PDF com o Chromium do Playwright.
+
+- **HTML + Chromium em vez de lib de PDF** (pdfkit/pdfmake): layout, gráficos e tabelas que quebram página são CSS comum, e a prévia é o PDF de verdade. O custo é o Chromium no servidor (ver deploy abaixo).
+- **Um navegador por processo, um contexto por relatório.** Abrir o Chromium custa ~1s; o contexto isolado é barato. Se o navegador cair, o próximo pedido abre outro. O contexto roda **sem JavaScript e com toda a rede bloqueada**: o HTML é todo gerado no servidor, então qualquer requisição seria conteúdo do usuário tentando buscar algo.
+- **Todo texto do usuário passa por `escape`** no template (nome de categoria, descrição, título...). Sem isso, um nome com `<img src=...>` viraria marcação dentro do PDF.
+- **Fontes da marca embutidas em base64** (`@fontsource/manrope` e `bricolage-grotesque`, as mesmas do front), e o logo é o mesmo SVG do `Logo` do front, copiado em [`report-brand.ts`](src/services/reports/report-brand.ts). O PDF sai igual em qualquer máquina, sem depender de fonte instalada nem de internet.
+- **Marca**: cabeçalho (logo, cliente, período, data de emissão no fuso de quem pediu, filtros), rodapé em todas as páginas (logo, cliente, título, "Página X de Y") e um bloco de encerramento com o logo esmaecido no fim do documento.
+- **Prévia não salva, geração salva.** `POST /reports/preview` responde o PDF direto; `POST /reports/generate` salva em `reports` e o arquivo é baixado depois por `GET /reports/:id/download`. O histórico guarda os filtros usados (`jsonb`) junto com o PDF.
+- **PDF no Postgres (`bytea`)**, pelo mesmo motivo da foto de perfil: o disco do Railway é apagado a cada deploy. Um relatório tem ~40–150KB. A coluna é `select: false` e só [`ReportRepository.loadFile`](src/db/repository/report-repository.ts) lê os bytes.
+- **O relatório é um retrato**: o PDF salvo não muda se os lançamentos forem editados depois. É o que se espera de um arquivo baixado; para ver os dados atuais, gera-se outro.
+- **Filtro com id que não é do usuário dá 404**, não é ignorado: ignorar geraria um relatório "filtrado" que na verdade traz tudo. Filtro de cartão só se aplica a gastos.
+- **Deploy**: o Railway precisa do Chromium e das bibliotecas de sistema dele. No build: `npx playwright install --with-deps chromium`. Sem isso, as rotas de relatório respondem 500 `REPORT_GENERATION_FAILED` (o resto da API funciona). Com `logging: true`, o INSERT do relatório também loga os bytes do PDF, como já acontece com a foto.
+- **Idioma**: o PDF sai em pt-BR, com a moeda da preferência do usuário. Traduzir exige passar o idioma das preferências para o template.
+
 ## Validação (Zod) e normalização de dados
 
 - **O `.parse()` fica no Service, nunca no Controller.** O service recebe `data: unknown` e valida na primeira linha; o controller só repassa `req.body`/`req.params`. Assim qualquer chamador do service (rota hoje; job, script ou teste amanhã) passa pela mesma validação sem precisar lembrar. Nas primeiras versões (#0001–#0003) o parse ficava no controller; foi movido de propósito no #0004/#0005.

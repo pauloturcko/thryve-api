@@ -595,6 +595,34 @@ export const swaggerDocument = {
           id: { type: "integer", description: "ID do lançamento a ser removido. Se era aporte ou resgate, o saldo da conta é desfeito", example: 2 },
         },
       },
+      // ===== RELATÓRIOS =====
+      ReportConfigInput: {
+        type: "object",
+        required: ["startDate", "endDate", "sections"],
+        properties: {
+          title: { type: "string", nullable: true, example: null, description: "Título (opcional, até 120 caracteres). Sem ele: 'Novembro de 2026', 'Setembro a Novembro de 2026', 'Ano de 2026' ou as datas" },
+          startDate: { type: "string", example: "2026-11-01", description: "Início do período (AAAA-MM-DD)" },
+          endDate: { type: "string", example: "2026-11-30", description: "Fim do período (AAAA-MM-DD), no máximo 5 anos depois do início" },
+          sections: {
+            type: "array",
+            items: { type: "integer", enum: [0, 1, 2, 3] },
+            example: [0, 1, 2, 3],
+            description: "Seções do PDF: 0 = Visão geral, 1 = Rendas, 2 = Gastos, 3 = Investimentos. A visão geral resume as outras escolhidas; sozinha, resume tudo",
+          },
+          bankAccountIds: { type: "array", items: { type: "integer" }, example: [], description: "Só lançamentos e investimentos dessas contas (opcional)" },
+          cardIds: { type: "array", items: { type: "integer" }, example: [], description: "Só gastos desses cartões (opcional; não afeta rendas nem investimentos)" },
+          categoryIds: { type: "array", items: { type: "integer" }, example: [], description: "Só lançamentos dessas categorias (opcional)" },
+          includeTransactions: { type: "boolean", example: true, description: "Incluir as tabelas de lançamentos (padrão true). Sem elas, o PDF traz só totais e gráficos" },
+          timezone: { type: "string", example: "America/Sao_Paulo", description: "Fuso (IANA) usado na data de emissão do cabeçalho. Padrão America/Sao_Paulo" },
+        },
+      },
+      ReportDeleteInput: {
+        type: "object",
+        required: ["id"],
+        properties: {
+          id: { type: "integer", description: "ID do relatório a ser removido do histórico", example: 1 },
+        },
+      },
       IncomeRegisterInput: {
         type: "object",
         required: ["incomeKind", "amount", "date", "categoryId", "bankAccountId"],
@@ -1762,6 +1790,91 @@ export const swaggerDocument = {
         responses: {
           200: { description: "Taxas retornadas com sucesso" },
           401: { description: "Não autorizado" },
+        },
+      },
+    },
+
+    // ------------------ ROTAS DE RELATÓRIOS ------------------
+    "/reports/preview": {
+      post: {
+        tags: ["Relatórios"],
+        summary: "Gerar a prévia do relatório em PDF, sem salvar no histórico",
+        description: "Responde o próprio PDF (application/pdf, inline). O front exibe num iframe enquanto o usuário ajusta os filtros",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/ReportConfigInput" } } },
+        },
+        responses: {
+          200: { description: "PDF da prévia", content: { "application/pdf": { schema: { type: "string", format: "binary" } } } },
+          400: { description: "Erro de validação (INVALID_PERIOD, INVALID_TIMEZONE...)" },
+          401: { description: "Não autorizado" },
+          404: { description: "Filtro com conta (BANK_ACCOUNT_NOT_FOUND), cartão (CARD_NOT_FOUND) ou categoria (CATEGORY_NOT_FOUND) que não existe ou é de outro usuário" },
+          500: { description: "Falha ao gerar o PDF (REPORT_GENERATION_FAILED)" },
+        },
+      },
+    },
+    "/reports/generate": {
+      post: {
+        tags: ["Relatórios"],
+        summary: "Gerar o relatório e salvar no histórico",
+        description: "Responde os dados do relatório salvo (sem o arquivo). O PDF é baixado depois em /reports/{id}/download",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/ReportConfigInput" } } },
+        },
+        responses: {
+          201: { description: "Relatório gerado e salvo" },
+          400: { description: "Erro de validação (INVALID_PERIOD, INVALID_TIMEZONE...)" },
+          401: { description: "Não autorizado" },
+          404: { description: "Filtro com conta (BANK_ACCOUNT_NOT_FOUND), cartão (CARD_NOT_FOUND) ou categoria (CATEGORY_NOT_FOUND) que não existe ou é de outro usuário" },
+          500: { description: "Falha ao gerar o PDF (REPORT_GENERATION_FAILED)" },
+        },
+      },
+    },
+    "/reports/user-reports": {
+      get: {
+        tags: ["Relatórios"],
+        summary: "Histórico de relatórios do usuário logado (mais recentes primeiro)",
+        description: "Cada item: id, title, startDate, endDate, filters (seções e filtros usados), fileName, fileSize (bytes) e createdAt. Não traz o PDF",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: "Histórico retornado com sucesso" },
+          401: { description: "Não autorizado" },
+        },
+      },
+    },
+    "/reports/{id}/download": {
+      get: {
+        tags: ["Relatórios"],
+        summary: "Baixar o PDF de um relatório do histórico",
+        security: [{ bearerAuth: [] }],
+        parameters: [{ in: "path", name: "id", required: true, schema: { type: "integer" } }],
+        responses: {
+          200: { description: "PDF (attachment, com o nome do arquivo em Content-Disposition)", content: { "application/pdf": { schema: { type: "string", format: "binary" } } } },
+          400: { description: "ID inválido" },
+          401: { description: "Não autorizado" },
+          403: { description: "O relatório pertence a outro usuário" },
+          404: { description: "Relatório não encontrado (REPORT_NOT_FOUND)" },
+        },
+      },
+    },
+    "/reports/delete": {
+      delete: {
+        tags: ["Relatórios"],
+        summary: "Remover um relatório do histórico",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/ReportDeleteInput" } } },
+        },
+        responses: {
+          200: { description: "Relatório excluído com sucesso" },
+          400: { description: "ID ausente ou inválido" },
+          401: { description: "Não autorizado" },
+          403: { description: "O relatório pertence a outro usuário" },
+          404: { description: "Relatório não encontrado (REPORT_NOT_FOUND)" },
         },
       },
     },

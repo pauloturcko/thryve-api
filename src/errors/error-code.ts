@@ -66,6 +66,10 @@ export enum ErrorCode {
     investmentMovementAmountNotPositive = "INVESTMENT_MOVEMENT_AMOUNT_NOT_POSITIVE",
     investmentValueUnchanged = "INVESTMENT_VALUE_UNCHANGED",
     prefixedRateRequired = "PREFIXED_RATE_REQUIRED",
+
+    // Relatórios
+    reportNotFound = "REPORT_NOT_FOUND",
+    reportGenerationFailed = "REPORT_GENERATION_FAILED",
 }
 
 // Códigos usados em `errors[].code` do 400 de validação, além dos códigos nativos do Zod
@@ -77,6 +81,8 @@ export enum ValidationIssueCode {
     amountNegative = "AMOUNT_NEGATIVE",
     amountZero = "AMOUNT_ZERO",
     rateOutOfRange = "RATE_OUT_OF_RANGE",
+    invalidPeriod = "INVALID_PERIOD",
+    invalidTimezone = "INVALID_TIMEZONE",
     invalidDate = "INVALID_DATE",
     cardLimitTooLow = "CARD_LIMIT_TOO_LOW",
     cardLimitRequired = "CARD_LIMIT_REQUIRED",
