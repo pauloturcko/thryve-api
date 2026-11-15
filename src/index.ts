@@ -18,6 +18,7 @@ import { profilePictureRouter } from "./http/routes/profile-picture-routes";
 import { goalRouter } from "./http/routes/goal-routes";
 import { investmentRouter } from "./http/routes/investment-routes";
 import { indexRateRouter } from "./http/routes/index-rate-routes";
+import { reportRouter } from "./http/routes/report-routes";
 import { ErrorCode } from "./errors";
 
 const app = express();
@@ -39,6 +40,7 @@ app.use(
       callback(null, isAllowed);
     },
     credentials: true,
+    exposedHeaders: ["Content-Disposition"],
   })
 );
 app.use(express.json());
@@ -60,6 +62,7 @@ app.use("/profile-picture", profilePictureRouter);
 app.use("/goals", goalRouter);
 app.use("/investments", investmentRouter);
 app.use("/indexes", indexRateRouter);
+app.use("/reports", reportRouter);
 
 app.use((error: unknown, req: Request, res: Response, next: NextFunction) => {
   if (error instanceof SyntaxError && "type" in error && error.type === "entity.parse.failed") {

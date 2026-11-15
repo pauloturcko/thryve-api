@@ -1,4 +1,4 @@
-import { Between, EntityManager, FindOptionsWhere, Repository } from "typeorm";
+import { Between, EntityManager, FindOptionsWhere, In, Repository } from "typeorm";
 import { Transaction } from "../models/transaction";
 import { appDataSource } from "../config/data-source";
 import { CreateTransactionDto, UpdateTransactionDto } from "../DTO/transaction-dto";
@@ -15,6 +15,9 @@ type TransactionFilters = {
     expenseKind?: ExpenseKindEnum,
     categoryId?: number,
     paymentMethodId?: number,
+    bankAccountIds?: number[],
+    cardIds?: number[],
+    categoryIds?: number[],
 }
 
 export class TransactionRepository {
@@ -37,7 +40,6 @@ export class TransactionRepository {
     }
 
     async loadByType(userId: number, type: TransactionTypeEnum, filters: TransactionFilters): Promise<Transaction[]> {
-        // Cada filtro só entra no where se veio preenchido: no TypeORM, um campo undefined no where vira "sem filtro".
         const where: FindOptionsWhere<Transaction> = {userId, type};
         if (filters.startDate && filters.endDate) where.date = Between(filters.startDate, filters.endDate);
         if (filters.status !== undefined) where.status = filters.status;
@@ -45,6 +47,9 @@ export class TransactionRepository {
         if (filters.expenseKind !== undefined) where.expenseKind = filters.expenseKind;
         if (filters.categoryId !== undefined) where.categoryId = filters.categoryId;
         if (filters.paymentMethodId !== undefined) where.paymentMethodId = filters.paymentMethodId;
+        if (filters.bankAccountIds?.length) where.bankAccountId = In(filters.bankAccountIds);
+        if (filters.cardIds?.length) where.cardId = In(filters.cardIds);
+        if (filters.categoryIds?.length) where.categoryId = In(filters.categoryIds);
 
         return await this.repository.find({
             where,
