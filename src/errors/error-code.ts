@@ -12,6 +12,7 @@ export enum ErrorCode {
 
     // Usuário e preferências
     emailAlreadyExists = "EMAIL_ALREADY_EXISTS",
+    registrationDisabled = "REGISTRATION_DISABLED",
     preferencesNotFound = "PREFERENCES_NOT_FOUND",
 
     // Foto de perfil

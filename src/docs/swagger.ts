@@ -874,6 +874,16 @@ export const swaggerDocument = {
       post: {
         tags: ["Usuários"],
         summary: "Cadastrar um novo usuário",
+        description:
+          "Cadastro fechado ao público. Envie no header x-registration-key a chave definida em REGISTRATION_KEY.",
+        parameters: [
+          {
+            name: "x-registration-key",
+            in: "header",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
         requestBody: {
           required: true,
           content: {
@@ -890,6 +900,9 @@ export const swaggerDocument = {
           },
           400: {
             description: "Erro de validação nos dados enviados",
+          },
+          403: {
+            description: "Cadastro desativado ou chave de cadastro inválida",
           },
           409: {
             description: "E-mail já cadastrado",
