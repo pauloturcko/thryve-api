@@ -2,6 +2,7 @@ import express, { NextFunction, Request, Response } from "express";
 import http from "http";
 import cors from "cors";
 import { appDataSource } from "./db/config/data-source";
+import { seedPaymentMethods } from "./db/seeds/payment-methods-seed";
 import "dotenv/config";
 import swaggerUi from "swagger-ui-express";
 import { swaggerDocument } from "./docs/swagger";
@@ -73,8 +74,10 @@ app.use((error: unknown, req: Request, res: Response, next: NextFunction) => {
 
 appDataSource
   .initialize()
-  .then(() => {
+  .then(async () => {
     console.log("Database connected successfully!");
+
+    await seedPaymentMethods(appDataSource);
 
     app.get("/", (req, res) => {
       res.send("DB Connected!");
@@ -86,5 +89,5 @@ appDataSource
     });
   })
   .catch((error) => {
-    console.error("Error connecting to the DB:", error);
+    console.error("Error starting the API:", error);
   });
