@@ -71,6 +71,11 @@ export enum ErrorCode {
     // Relatórios
     reportNotFound = "REPORT_NOT_FOUND",
     reportGenerationFailed = "REPORT_GENERATION_FAILED",
+
+    // Open Finance (Pluggy)
+    openFinanceNotConfigured = "OPEN_FINANCE_NOT_CONFIGURED",
+    openFinanceProviderError = "OPEN_FINANCE_PROVIDER_ERROR",
+    openFinanceItemNotFound = "OPEN_FINANCE_ITEM_NOT_FOUND",
 }
 
 // Códigos usados em `errors[].code` do 400 de validação, além dos códigos nativos do Zod

@@ -20,6 +20,8 @@ import { goalRouter } from "./http/routes/goal-routes";
 import { investmentRouter } from "./http/routes/investment-routes";
 import { indexRateRouter } from "./http/routes/index-rate-routes";
 import { reportRouter } from "./http/routes/report-routes";
+import { openFinanceRouter } from "./http/routes/open-finance-routes";
+import { openFinanceWebhookRouter } from "./http/routes/open-finance-webhook-routes";
 import { ErrorCode } from "./errors";
 
 const app = express();
@@ -44,6 +46,7 @@ app.use(
     exposedHeaders: ["Content-Disposition"],
   })
 );
+app.use("/open-finance/webhooks", openFinanceWebhookRouter);
 app.use(express.json());
 
 app.use("/swagger", swaggerUi.serve, swaggerUi.setup(swaggerDocument))
@@ -64,6 +67,7 @@ app.use("/goals", goalRouter);
 app.use("/investments", investmentRouter);
 app.use("/indexes", indexRateRouter);
 app.use("/reports", reportRouter);
+app.use("/open-finance", openFinanceRouter);
 
 app.use((error: unknown, req: Request, res: Response, next: NextFunction) => {
   if (error instanceof SyntaxError && "type" in error && error.type === "entity.parse.failed") {
