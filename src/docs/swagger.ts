@@ -1978,11 +1978,10 @@ export const swaggerDocument = {
           },
         },
         responses: {
-          200: { description: "Evento aceito ({ received: true }) ou repetido ({ received: true, duplicate: true })" },
+          200: { description: "Evento aceito ({ received: true }), repetido ({ received: true, duplicate: true }) ou descartado por PLUGGY_WEBHOOK_SECRET não configurado ({ received: false, reason })" },
           400: { description: "Corpo não é JSON válido ou faltam event/eventId (o Pluggy não reenvia)" },
           401: { description: "Assinatura ausente, inválida ou expirada (o Pluggy não reenvia)" },
           500: { description: "Falha ao registrar o evento (o Pluggy reenvia)" },
-          503: { description: "PLUGGY_WEBHOOK_SECRET não configurado (o Pluggy reenvia)" },
         },
       },
     },
