@@ -99,6 +99,26 @@ Fluxo: [`ReportService`](src/services/report-service.ts) valida filtros → [`re
 - **Deploy (Dockerfile)**: o Railway monta a API pelo [`Dockerfile`](Dockerfile), baseado na imagem oficial do Playwright, que já traz o Chromium e as bibliotecas de sistema. A imagem padrão de Node do Railway não tem navegador, e aí as rotas de relatório respondem 500 `REPORT_GENERATION_FAILED` (log: `browserType.launch: Executable doesn't exist`). **A tag da imagem precisa ser a mesma versão do pacote `playwright`**, fixada sem `^` no `package.json`: ao atualizar um, atualizar o outro. Com `logging: true`, o INSERT do relatório também loga os bytes do PDF, como já acontece com a foto.
 - **Idioma**: o PDF sai em pt-BR, com a moeda da preferência do usuário. Traduzir exige passar o idioma das preferências para o template.
 
+## Open Finance (Pluggy)
+
+Fluxo: front pede `POST /open-finance/connect-token` → abre o widget `react-pluggy-connect` com o token → usuário autoriza no banco → no `onSuccess` o front manda `item.id` para `POST /open-finance/items/register` → a API salva em `open_finance_items`.
+
+- **Credenciais só no ambiente** (`PLUGGY_CLIENT_ID` e `PLUGGY_CLIENT_SECRET`), lidas pelo [`OpenFinanceService`](src/services/open-finance-service.ts) na primeira chamada. Sem elas, só as rotas de Open Finance respondem 500 `OPEN_FINANCE_NOT_CONFIGURED`. O `pluggy-sdk` guarda a API key (2h) e renova sozinho.
+- **`clientUserId` vem do JWT, nunca do corpo.** É ele que liga o Item do Pluggy ao usuário do Thryve; se o front mandasse, qualquer um geraria token em nome de outro usuário.
+- **O `register` não confia no `item.id` do navegador**: busca o Item no Pluggy e só salva se o `clientUserId` dele for o do usuário logado. Sem isso, um usuário poderia "adotar" a conexão bancária de outro mandando o id dela.
+- **Ainda não importa contas nem transações**: a conexão fica salva e atualizada pelos webhooks, mas buscar contas/transações (`fetchAccounts`, `fetchTransactions`) é o próximo passo. Os eventos `transactions/*` já chegam e ficam registrados.
+
+### Webhooks (`POST /open-finance/webhooks/pluggy`)
+
+- **Rota pública autenticada pela assinatura**, não por JWT: `X-Pluggy-Signature: t=<unix>,v1=<hex>`, HMAC-SHA256 de `"<t>.<corpo bruto>"` com o segredo inteiro (`whsec_...`), comparação em tempo constante e timestamp de até 5 min ([pluggy-signature.ts](src/utils/pluggy-signature.ts)). Por precisar dos bytes exatos, o router é montado **antes do `express.json()`** no [index.ts](src/index.ts) e lê o corpo com `express.raw`.
+- **Responde antes de processar.** O Pluggy exige 2XX em até 10s e buscar o Item na API dele pode demorar; então a rota valida, grava o evento e responde, e o processamento roda em seguida no mesmo processo (`setImmediate`).
+- **Idempotência pelo `eventId`**: `pluggy_webhook_events` tem `event_id` único e o insert é `ON CONFLICT DO NOTHING`. Retentativas e reenvios manuais do Pluggy repetem eventos, e o repetido só responde 200.
+- **Status escolhidos pela regra de retentativa do Pluggy**: 400/401 não são reenviados (assinatura ou corpo inválidos não vão melhorar); 500 (falha ao gravar) e 503 (segredo não configurado) são, então nada se perde por instabilidade nossa.
+- **O payload só traz ids**: cada evento de item busca o Item atual no Pluggy (`syncItem`) em vez de confiar no corpo. O dono vem do `clientUserId` do Item, que é o id que nós gravamos no Connect Token. Isso também cobre o banco que autoriza depois: o `item/created`/`item/updated` cria a conexão mesmo sem o `onSuccess` do widget.
+- **Falha no processamento não é reenviada** (já respondemos 200): fica com `error` preenchido na tabela. Se virar problema, o passo seguinte é uma fila com retentativa (os eventos com `processed_at` e `error` já dão o que reprocessar).
+- **Segredo de assinatura** em `PLUGGY_WEBHOOK_SECRET`. Na troca de segredo o Pluggy passa a assinar só com o novo em segundos, então a variável aceita os dois separados por vírgula durante a troca.
+- **URL**: cadastrar `https://apithryve.pauloturcko.dev/open-finance/webhooks/pluggy` no dashboard do Pluggy (evento `all`), ou definir `PLUGGY_WEBHOOK_URL`, que vai no `webhookUrl` de cada Connect Token. O Pluggy só entrega em HTTPS público: em `localhost` não chega.
+
 ## Validação (Zod) e normalização de dados
 
 - **O `.parse()` fica no Service, nunca no Controller.** O service recebe `data: unknown` e valida na primeira linha; o controller só repassa `req.body`/`req.params`. Assim qualquer chamador do service (rota hoje; job, script ou teste amanhã) passa pela mesma validação sem precisar lembrar. Nas primeiras versões (#0001–#0003) o parse ficava no controller; foi movido de propósito no #0004/#0005.
