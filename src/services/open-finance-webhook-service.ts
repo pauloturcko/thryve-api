@@ -27,8 +27,8 @@ export class OpenFinanceWebhookService {
     async receive(rawBody: Buffer, signatureHeader: string | undefined): Promise<WebhookResult> {
         const secrets = signingSecrets();
         if (secrets.length === 0) {
-            console.error("Webhook do Pluggy recebido sem PLUGGY_WEBHOOK_SECRET configurado; evento descartado sem processar.");
-            return {status: 200, body: {received: false, reason: "signing secret not configured"}};
+            console.error("Webhook do Pluggy recebido sem PLUGGY_WEBHOOK_SECRET configurado; evento recusado.");
+            return {status: 503, body: {received: false}};
         }
         if (!isValidPluggySignature(rawBody, signatureHeader, secrets)) {
             return {status: 401, body: {received: false}};
