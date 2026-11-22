@@ -623,20 +623,6 @@ export const swaggerDocument = {
           id: { type: "integer", description: "ID do relatório a ser removido do histórico", example: 1 },
         },
       },
-      // ===== OPEN FINANCE (PLUGGY) =====
-      OpenFinanceConnectTokenInput: {
-        type: "object",
-        properties: {
-          itemId: { type: "string", format: "uuid", description: "Opcional. Id de uma conexão já salva, para o widget atualizá-la (prop updateItem)" },
-        },
-      },
-      OpenFinanceRegisterItemInput: {
-        type: "object",
-        required: ["itemId"],
-        properties: {
-          itemId: { type: "string", format: "uuid", description: "item.id recebido no onSuccess do Pluggy Connect" },
-        },
-      },
       IncomeRegisterInput: {
         type: "object",
         required: ["incomeKind", "amount", "date", "categoryId", "bankAccountId"],
@@ -1902,98 +1888,6 @@ export const swaggerDocument = {
           401: { description: "Não autorizado" },
           403: { description: "O relatório pertence a outro usuário" },
           404: { description: "Relatório não encontrado (REPORT_NOT_FOUND)" },
-        },
-      },
-    },
-
-    // ------------------ ROTAS DE OPEN FINANCE (PLUGGY) ------------------
-    "/open-finance/connect-token": {
-      post: {
-        tags: ["Open Finance"],
-        summary: "Gerar o Connect Token para abrir o widget Pluggy Connect",
-        description: "Responde { accessToken }, válido por 30 minutos. O clientUserId enviado ao Pluggy é o id do usuário logado",
-        security: [{ bearerAuth: [] }],
-        requestBody: {
-          required: false,
-          content: { "application/json": { schema: { $ref: "#/components/schemas/OpenFinanceConnectTokenInput" } } },
-        },
-        responses: {
-          200: { description: "Token gerado" },
-          400: { description: "itemId inválido" },
-          401: { description: "Não autorizado" },
-          403: { description: "A conexão pertence a outro usuário" },
-          404: { description: "Conexão não encontrada (OPEN_FINANCE_ITEM_NOT_FOUND)" },
-          500: { description: "Credenciais do Pluggy não configuradas (OPEN_FINANCE_NOT_CONFIGURED) ou falha no Pluggy (OPEN_FINANCE_PROVIDER_ERROR)" },
-        },
-      },
-    },
-    "/open-finance/items/register": {
-      post: {
-        tags: ["Open Finance"],
-        summary: "Salvar a conexão criada pelo widget (onSuccess)",
-        description: "Busca o Item no Pluggy e só salva se ele foi criado com um token deste usuário. Salvar o mesmo itemId de novo atualiza o registro",
-        security: [{ bearerAuth: [] }],
-        requestBody: {
-          required: true,
-          content: { "application/json": { schema: { $ref: "#/components/schemas/OpenFinanceRegisterItemInput" } } },
-        },
-        responses: {
-          201: { description: "Conexão salva" },
-          400: { description: "itemId ausente ou inválido" },
-          401: { description: "Não autorizado" },
-          403: { description: "O Item foi criado para outro usuário" },
-          404: { description: "Item não existe no Pluggy (OPEN_FINANCE_ITEM_NOT_FOUND)" },
-          500: { description: "OPEN_FINANCE_NOT_CONFIGURED ou OPEN_FINANCE_PROVIDER_ERROR" },
-        },
-      },
-    },
-    "/open-finance/webhooks/pluggy": {
-      post: {
-        tags: ["Open Finance"],
-        summary: "Receber webhooks do Pluggy (chamado pelo Pluggy, não pelo front)",
-        description:
-          "Rota pública, autenticada pela assinatura X-Pluggy-Signature (HMAC-SHA256 de \"<t>.<corpo bruto>\" com PLUGGY_WEBHOOK_SECRET; timestamp com até 5 min). " +
-          "Responde 2XX na hora e processa depois. Eventos repetidos (mesmo eventId) são ignorados. " +
-          "Tratados: item/created, item/updated, item/login_succeeded e item/error (sincroniza a conexão com o Pluggy) e item/deleted (remove a conexão). " +
-          "Os demais ficam só registrados em pluggy_webhook_events",
-        parameters: [
-          { in: "header", name: "X-Pluggy-Signature", required: true, schema: { type: "string", example: "t=1795280000,v1=<hmac hex>" } },
-        ],
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["event", "eventId"],
-                properties: {
-                  event: { type: "string", example: "item/updated" },
-                  eventId: { type: "string", example: "e3b0c442-98fc-4c14-9afb-f4c8996fb924" },
-                  itemId: { type: "string", format: "uuid" },
-                  triggeredBy: { type: "string", example: "SYNC" },
-                  clientUserId: { type: "string", example: "1" },
-                },
-              },
-            },
-          },
-        },
-        responses: {
-          200: { description: "Evento aceito ({ received: true }) ou repetido ({ received: true, duplicate: true })" },
-          400: { description: "Corpo não é JSON válido ou faltam event/eventId (o Pluggy não reenvia)" },
-          401: { description: "Assinatura ausente, inválida ou expirada (o Pluggy não reenvia)" },
-          500: { description: "Falha ao registrar o evento (o Pluggy reenvia)" },
-          503: { description: "PLUGGY_WEBHOOK_SECRET não configurado (o Pluggy reenvia)" },
-        },
-      },
-    },
-    "/open-finance/items/user-items": {
-      get: {
-        tags: ["Open Finance"],
-        summary: "Listar as conexões Open Finance do usuário logado",
-        security: [{ bearerAuth: [] }],
-        responses: {
-          200: { description: "Lista de conexões (itemId, connectorName, connectorImageUrl, status, createdAt)" },
-          401: { description: "Não autorizado" },
         },
       },
     },
