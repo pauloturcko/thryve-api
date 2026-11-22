@@ -157,6 +157,7 @@ Objetivo: quem está usando o sistema nunca é deslogado; quem saiu do computado
 - Cookie `httpOnly` pro refresh token é opcional: front (`thryve.pauloturcko.dev`) e API (`apithryve.pauloturcko.dev`) são o mesmo site, então funcionaria com `SameSite=Lax` e protegeria o refresh de XSS. Dá pra começar com o refresh no corpo da resposta.
 
 ### Open Finance (importar gastos direto do banco)
+- **Decisão: não implementar.** Chegou a ser feito com o Pluggy (#0038) e foi removido: o custo de produção não se paga, e o lançamento rápido de gastos passou a ser o app iOS por voz. As tabelas `open_finance_items` e `pluggy_webhook_events` são apagadas pela migration `DropOpenFinanceTables`.
 - **Plaid** não atende o Brasil: os países aceitos no `/link/token/create` são EUA, Canadá, Reino Unido e países da Europa.
 - **Pluggy** é o agregador brasileiro (Open Finance regulado + conectores próprios). Fluxo: back gera `apiKey` (clientId/secret, 2h) → cria `connect token` (30 min) → front abre o widget Pluggy Connect → usuário autoriza no app do banco → back guarda o `itemId` ligado ao usuário → webhooks (`item/updated`, `transactions/created`) avisam de dados novos → back busca e grava como `Transaction`.
 - **Custo**: sandbox grátis; produção a partir de ~R$ 2.500/mês (dados). O **Meu Pluggy** é grátis sem prazo, mas só pras contas do próprio dono (até 5 conexões) e sem uso comercial: serve pra prototipar com as suas contas, não pra liberar pros usuários.
