@@ -37,7 +37,6 @@
     "multer": "^2.5.0",
     "pg": "^8.19.0",
     "playwright": "1.65.1",
-    "pluggy-sdk": "^0.93.0",
     "reflect-metadata": "^0.2.2",
     "sharp": "^0.35.5",
     "swagger-ui-express": "^5.0.1",
