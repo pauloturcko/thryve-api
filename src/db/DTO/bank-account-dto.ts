@@ -6,6 +6,7 @@ export interface CreateBankAccountDto {
     slug: string;
     accountType: AccountTypeEnum;
     balance: string
+    balanceDate: string
 }
 
 export type UpdateBankAccountDto  = Partial<CreateBankAccountDto> &{

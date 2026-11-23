@@ -1,0 +1,24 @@
+name: Origem da PR
+
+# A main é produção e só recebe versões fechadas na developer (ambiente de teste).
+# Exceção: hotfix/* para correção urgente direto em produção (depois, abrir PR main -> developer).
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, edited]
+
+jobs:
+  origem-da-pr:
+    name: origem-da-pr
+    runs-on: ubuntu-latest
+    steps:
+      - name: Só developer ou hotfix/* podem abrir PR para a main
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if [ "$HEAD_REF" = "developer" ] || [[ "$HEAD_REF" == hotfix/* ]]; then
+            echo "OK: $HEAD_REF -> main"
+          else
+            echo "::error::PR para a main só pode vir da developer (ou de hotfix/*). Abra esta PR para a developer."
+            exit 1
+          fi

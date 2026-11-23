@@ -315,6 +315,13 @@ export const swaggerDocument = {
             description: "Saldo inicial (padrão 0.00). Aceita negativo e os formatos '5000.00', '5.000,00' ou '5,000.00'",
             example: "1500.00",
           },
+          balanceDate: {
+            type: "string",
+            example: "2026-11-22",
+            description:
+              "Data em que o saldo informado vale (AAAA-MM-DD), na data local de quem cadastra (opcional; padrão: hoje no horário de Brasília). " +
+              "Lançamentos a partir dela mexem no saldo; os anteriores já estão nele. Não pode ser alterada depois",
+          },
         },
       },
       BankAccountUpdateInput: {
