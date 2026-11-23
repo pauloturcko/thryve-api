@@ -873,6 +873,124 @@ export const swaggerDocument = {
           },
         },
       },
+      ExpenseDraftContextResponse: {
+        type: "object",
+        description: "O que o app precisa para ligar o que foi falado (\"cartão do C6\", \"mercado\") a um id",
+        required: ["cards", "bankAccounts", "categories", "paymentMethods"],
+        properties: {
+          cards: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["id", "name", "lastFourDigits", "cardType"],
+              properties: {
+                id: { type: "integer", example: 1 },
+                name: { type: "string", example: "C6 Bank" },
+                lastFourDigits: { type: "string", example: "4321" },
+                cardType: { type: "integer", description: "Mesmo enum de /cards", example: 1 },
+              },
+            },
+          },
+          bankAccounts: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["id", "name", "accountType"],
+              properties: {
+                id: { type: "integer", example: 1 },
+                name: { type: "string", example: "Conta C6" },
+                accountType: { type: "integer", description: "Mesmo enum de /bank-accounts", example: 0 },
+              },
+            },
+          },
+          categories: {
+            type: "array",
+            description: "Só categorias de gasto",
+            items: {
+              type: "object",
+              required: ["id", "name", "icon", "color"],
+              properties: {
+                id: { type: "integer", example: 1 },
+                name: { type: "string", example: "Mercado" },
+                icon: { type: "string", example: "shopping-cart" },
+                color: { type: "string", example: "#14b8a6" },
+              },
+            },
+          },
+          paymentMethods: {
+            type: "array",
+            description: "Só as formas de pagamento ativas nas preferências do usuário",
+            items: {
+              type: "object",
+              required: ["id", "name", "slug", "requiresCard"],
+              properties: {
+                id: { type: "integer", example: 5 },
+                name: { type: "string", example: "Cartão de Crédito" },
+                slug: { type: "string", example: "credit_card" },
+                requiresCard: { type: "boolean", example: true },
+              },
+            },
+          },
+        },
+      },
+      ExpenseDraftInput: {
+        type: "object",
+        description: "Só a frase é obrigatória. O resto é o que deu para entender dela",
+        required: ["transcript"],
+        properties: {
+          transcript: { type: "string", description: "A frase falada, como foi transcrita (até 500 caracteres)", example: "gastei 10 reais no mercado no cartão do C6" },
+          description: { type: "string", nullable: true, example: "Mercado" },
+          amount: { type: "string", nullable: true, description: "Aceita formato BR ou US", example: "10,00" },
+          date: { type: "string", format: "date", nullable: true, example: "2026-11-22" },
+          expenseKind: { type: "integer", enum: [0, 1], nullable: true, description: "0 = fixo, 1 = variável" },
+          categoryId: { type: "integer", nullable: true, example: 1 },
+          bankAccountId: { type: "integer", nullable: true, example: 1 },
+          paymentMethodId: { type: "integer", nullable: true, example: 5 },
+          cardId: { type: "integer", nullable: true, example: 1 },
+        },
+      },
+      ExpenseDraftResponse: {
+        type: "object",
+        required: ["id", "transcript", "createdAt"],
+        properties: {
+          id: { type: "integer", example: 1 },
+          transcript: { type: "string", example: "gastei 10 reais no mercado no cartão do C6" },
+          description: { type: "string", nullable: true, example: "Mercado" },
+          amount: { type: "string", nullable: true, example: "10.00" },
+          date: { type: "string", format: "date", nullable: true, example: "2026-11-22" },
+          expenseKind: { type: "integer", enum: [0, 1], nullable: true },
+          categoryId: { type: "integer", nullable: true },
+          bankAccountId: { type: "integer", nullable: true },
+          paymentMethodId: { type: "integer", nullable: true },
+          cardId: { type: "integer", nullable: true },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      ExpenseDraftConfirmInput: {
+        type: "object",
+        description: "draftId + os campos de ExpenseRegisterInput. O que não vier é completado com o que o rascunho já tem",
+        required: ["draftId"],
+        properties: {
+          draftId: { type: "integer", example: 1 },
+          expenseKind: { type: "integer", enum: [0, 1], example: 1 },
+          bankAccountId: { type: "integer", example: 1 },
+          categoryId: { type: "integer", example: 1 },
+          paymentMethodId: { type: "integer", example: 5 },
+          cardId: { type: "integer", nullable: true, example: 1 },
+          description: { type: "string", example: "Mercado" },
+          amount: { type: "string", example: "10.00" },
+          date: { type: "string", format: "date", example: "2026-11-22" },
+          status: { type: "integer", enum: [0, 1], description: "0 = pendente (não pago), 1 = pago" },
+        },
+      },
+      ExpenseDraftDeleteInput: {
+        type: "object",
+        required: ["id"],
+        properties: {
+          id: { type: "integer", description: "ID do rascunho a descartar", example: 1 },
+        },
+      },
     },
   },
   paths: {
@@ -2221,6 +2339,86 @@ export const swaggerDocument = {
           409: {
             description: "O gasto tem reembolsos vinculados",
           },
+        },
+      },
+    },
+
+    // ------------------ ROTAS DE RASCUNHOS DE GASTO (APP DE VOZ) ------------------
+    "/expense-drafts/context": {
+      get: {
+        tags: ["Rascunhos de Gasto"],
+        summary: "Cartões, contas, categorias de gasto e formas de pagamento ativas do usuário",
+        description: "Usado pelo app de voz para transformar o que foi falado em ids",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: "Contexto do usuário", content: { "application/json": { schema: { $ref: "#/components/schemas/ExpenseDraftContextResponse" } } } },
+          401: { description: "Não autorizado" },
+        },
+      },
+    },
+    "/expense-drafts/register": {
+      post: {
+        tags: ["Rascunhos de Gasto"],
+        summary: "Salvar um gasto falado como rascunho, para revisar depois",
+        description: "Rascunho não entra em saldo, relatórios nem listagem de gastos. Os ids enviados precisam ser do usuário; combinações (ex.: cartão de débito no crédito) só são conferidas ao confirmar",
+        security: [{ bearerAuth: [] }],
+        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ExpenseDraftInput" } } } },
+        responses: {
+          201: {
+            description: "Rascunho salvo",
+            content: { "application/json": { schema: { type: "object", required: ["draft"], properties: { draft: { $ref: "#/components/schemas/ExpenseDraftResponse" } } } } },
+          },
+          400: { description: "Erro de validação (frase ausente, valor inválido...)" },
+          401: { description: "Não autorizado" },
+          403: { description: "Categoria, conta ou cartão de outro usuário" },
+          404: { description: "Categoria, conta, cartão ou forma de pagamento não encontrado" },
+          422: { description: "Categoria que não é de gasto ou forma de pagamento desativada" },
+        },
+      },
+    },
+    "/expense-drafts/user-drafts": {
+      get: {
+        tags: ["Rascunhos de Gasto"],
+        summary: "Rascunhos do usuário logado, mais recentes primeiro",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: "Lista de rascunhos",
+            content: { "application/json": { schema: { type: "object", required: ["drafts"], properties: { drafts: { type: "array", items: { $ref: "#/components/schemas/ExpenseDraftResponse" } } } } } },
+          },
+          401: { description: "Não autorizado" },
+        },
+      },
+    },
+    "/expense-drafts/confirm": {
+      post: {
+        tags: ["Rascunhos de Gasto"],
+        summary: "Transformar o rascunho em gasto",
+        description: "Mesmas regras de /expenses/register. O gasto é criado e o rascunho apagado na mesma transação. Se faltar algo, responde 400 e o rascunho continua lá",
+        security: [{ bearerAuth: [] }],
+        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ExpenseDraftConfirmInput" } } } },
+        responses: {
+          201: { description: "Gasto registrado e rascunho removido" },
+          400: { description: "Erro de validação: algum campo obrigatório do gasto ainda falta" },
+          401: { description: "Não autorizado" },
+          403: { description: "O rascunho, a conta, a categoria ou o cartão pertence a outro usuário" },
+          404: { description: "Rascunho (EXPENSE_DRAFT_NOT_FOUND), conta, categoria, forma de pagamento ou cartão não encontrado" },
+          422: { description: "Mesmas regras de negócio de /expenses/register" },
+        },
+      },
+    },
+    "/expense-drafts/delete": {
+      delete: {
+        tags: ["Rascunhos de Gasto"],
+        summary: "Descartar um rascunho",
+        security: [{ bearerAuth: [] }],
+        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ExpenseDraftDeleteInput" } } } },
+        responses: {
+          200: { description: "Rascunho descartado" },
+          400: { description: "ID ausente ou inválido" },
+          401: { description: "Não autorizado" },
+          403: { description: "O rascunho pertence a outro usuário" },
+          404: { description: "Rascunho não encontrado (EXPENSE_DRAFT_NOT_FOUND)" },
         },
       },
     },

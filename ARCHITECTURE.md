@@ -114,6 +114,16 @@ Fluxo: [`ReportService`](src/services/report-service.ts) valida filtros → [`re
 - **Por que não `created_at`**: o Postgres grava `created_at` em UTC. Uma conta cadastrada depois das 21h de Brasília ficava com a data do dia seguinte, e os gastos/rendas do próprio dia deixavam de contar no saldo. A `balance_date` é a data local de quem cadastra (o front manda; sem ela, hoje em `America/Sao_Paulo`). Contas antigas receberam `created_at` convertido para o horário de Brasília.
 - Não pode ser editada: mudar a data mudaria quais lançamentos já estão no saldo, e ele teria que ser recalculado.
 
+## Rascunhos de gasto (app de voz)
+
+O app iOS registra gastos falados. A fala nem sempre diz tudo (conta, categoria, tipo), então o que chega vira um **rascunho** em `expense_drafts`, revisado depois no dashboard. Rotas em [`expense-draft-routes.ts`](src/http/routes/expense-draft-routes.ts).
+
+- **Tabela separada, não um status em `transactions`.** `status` em `transactions` já quer dizer pago/não pago, e `category_id`/`bank_account_id` são obrigatórios lá. Um rascunho dentro de `transactions` exigiria afrouxar essas colunas e filtrar rascunhos em saldo, relatórios e listagens. Separado, nada disso é tocado: o rascunho só vira lançamento ao ser confirmado.
+- **Só a frase (`transcript`) é obrigatória.** Os ids que vierem precisam ser do usuário; combinações (cartão de débito no crédito, parcelamento) só são conferidas na confirmação.
+- **Confirmar = `createExpense` com o rascunho como valores padrão.** O corpo completa ou sobrescreve o que o rascunho tem; campo vazio no rascunho não entra, para a validação do gasto acusar o que falta. O gasto é criado e o rascunho apagado **na mesma transação** (gancho `inSameTransaction` de `createExpense`): se um falha, o outro não acontece, e confirmar duas vezes dá 404 em vez de gasto duplicado.
+- **FKs com `ON DELETE SET NULL`**: apagar a categoria, a conta ou o cartão não é barrado por um rascunho, só limpa o campo.
+- `GET /expense-drafts/context` devolve cartões, contas, categorias de gasto e formas de pagamento ativas: é o que o app (e a futura extração da frase) usa para ligar "cartão do C6" a um id.
+
 ## Validação (Zod) e normalização de dados
 
 - **O `.parse()` fica no Service, nunca no Controller.** O service recebe `data: unknown` e valida na primeira linha; o controller só repassa `req.body`/`req.params`. Assim qualquer chamador do service (rota hoje; job, script ou teste amanhã) passa pela mesma validação sem precisar lembrar. Nas primeiras versões (#0001–#0003) o parse ficava no controller; foi movido de propósito no #0004/#0005.
