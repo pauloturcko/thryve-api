@@ -5,6 +5,7 @@ import { BankAccount } from "../db/models/bank-account";
 import { Transaction } from "../db/models/transaction";
 import { CreateTransactionDto } from "../db/DTO/transaction-dto";
 import { PaymentMethods } from "../db/models/payment-methods";
+import { Cards } from "../db/models/cards";
 import { CardTypeEnum } from "../db/enum/card-type-enum";
 import { CategoryTypeEnum } from "../db/enum/category-type-enum";
 import { PaymentMethodEnum } from "../db/enum/payment-method-enum";
@@ -44,8 +45,15 @@ const splitAmount = (amount: string, installments: number) => {
     );
 };
 
-const countsInBalance = (transaction: Pick<Transaction, "status" | "date">, account: BankAccount) =>
-    transaction.status === TransactionStatusEnum.paid && transaction.date >= toDateString(account.createdAt);
+const countsInBalance = (transaction: Pick<Transaction, "status" | "date" | "paymentMethodId">, account: BankAccount) =>
+    transaction.status === TransactionStatusEnum.paid
+    && transaction.paymentMethodId !== PaymentMethodEnum.creditCard
+    && transaction.date >= toDateString(account.createdAt);
+
+const toCents = (amount: string | number) => Math.round(Number(amount) * 100);
+
+const isPendingCredit = (transaction: {status: TransactionStatusEnum, paymentMethodId?: number | null}) =>
+    transaction.status === TransactionStatusEnum.pending && transaction.paymentMethodId === PaymentMethodEnum.creditCard;
 
 const balanceEffect = (transaction: Pick<Transaction, "type" | "amount">) =>
     transaction.type === TransactionTypeEnum.income ? Number(transaction.amount) : -Number(transaction.amount);
@@ -132,10 +140,10 @@ export class TransactionService {
         const parsed = createExpenseValidator.parse(data);
 
         await this.ensureUserHasAccount(userId);
-        const account = await this.loadOwnedAccount(userId, parsed.bankAccountId);
         await this.ensureOwnedCategory(userId, parsed.categoryId, CategoryTypeEnum.expense);
-        const paymentMethod = await this.ensureValidPayment(userId, parsed.paymentMethodId, parsed.cardId ?? null);
+        const {paymentMethod, card} = await this.ensureValidPayment(userId, parsed.paymentMethodId, parsed.cardId ?? null);
         if (parsed.installments) this.ensureInstallmentsAllowed(paymentMethod);
+        const account = await this.loadOwnedAccount(userId, this.resolveExpenseAccount(card, parsed.bankAccountId));
 
         const installments = parsed.installments ?? 1;
         const amounts = splitAmount(parsed.amount, installments);
@@ -151,14 +159,16 @@ export class TransactionService {
             dueDate: parsed.dueDate ? addMonths(parsed.dueDate, index) : null,
             status: index === 0 ? parsed.status : TransactionStatusEnum.pending,
             categoryId: parsed.categoryId,
-            bankAccountId: parsed.bankAccountId,
+            bankAccountId: account.id,
             paymentMethodId: parsed.paymentMethodId,
-            cardId: parsed.cardId ?? null,
+            cardId: card?.id ?? null,
             notes: parsed.notes ?? null,
             installmentGroupId,
             installmentNumber: installmentGroupId ? index + 1 : null,
             installmentTotal: installmentGroupId ? installments : null,
         }));
+
+        if (card) await this.ensureWithinLimit(userId, card, rows.filter(isPendingCredit));
 
         return await appDataSource.transaction(async (manager) => {
             const transactionRepository = new TransactionRepository(manager);
@@ -194,12 +204,35 @@ export class TransactionService {
         if (parsed.categoryId !== undefined) {
             await this.ensureOwnedCategory(userId, parsed.categoryId, CategoryTypeEnum.expense);
         }
-        if ((parsed.paymentMethodId !== undefined || parsed.cardId !== undefined) && next.paymentMethodId) {
-            const paymentMethod = await this.ensureValidPayment(userId, next.paymentMethodId, next.cardId);
-            if (next.installmentTotal) this.ensureInstallmentsAllowed(paymentMethod);
-        }
 
-        await this.saveChange(userId, current, next, (repository) => repository.update(parsed));
+        let card: Cards | null = null;
+        if (next.paymentMethodId) {
+            const validated = await this.ensureValidPayment(userId, next.paymentMethodId, next.cardId);
+            card = validated.card;
+            const paymentChanged = (parsed.paymentMethodId !== undefined && parsed.paymentMethodId !== current.paymentMethodId)
+                || (parsed.cardId !== undefined && parsed.cardId !== current.cardId);
+            if (paymentChanged && next.installmentTotal) this.ensureInstallmentsAllowed(validated.paymentMethod);
+            next.cardId = card?.id ?? null;
+
+            if (next.cardId !== current.cardId) {
+                const fallback = card?.bankAccountId ? undefined : current.bankAccountId;
+                next.bankAccountId = this.resolveExpenseAccount(card, parsed.bankAccountId ?? fallback);
+            } else if (
+                card?.bankAccountId
+                && parsed.bankAccountId !== undefined
+                && parsed.bankAccountId !== current.bankAccountId
+                && parsed.bankAccountId !== card.bankAccountId
+            ) {
+                throw new BusinessRuleError(ErrorCode.cardAccountMismatch, "Esse cartão está vinculado a outra conta.");
+            }
+        }
+        if (card && isPendingCredit(next)) await this.ensureWithinLimit(userId, card, [next], current.id);
+
+        await this.saveChange(userId, current, next, (repository) => repository.update({
+            ...parsed,
+            bankAccountId: next.bankAccountId,
+            cardId: next.cardId,
+        }));
 
         return next;
     }
@@ -246,7 +279,11 @@ export class TransactionService {
         }
     }
 
-    private async ensureValidPayment(userId: number, paymentMethodId: number, cardId: number | null): Promise<PaymentMethods> {
+    private async ensureValidPayment(
+        userId: number,
+        paymentMethodId: number,
+        cardId: number | null,
+    ): Promise<{paymentMethod: PaymentMethods, card: Cards | null}> {
         const preference = await this.userPaymentPreferencesRepository.findByUserAndMethod(userId, paymentMethodId);
         if (!preference) throw new NotFoundError(ErrorCode.paymentMethodNotFound, "Payment method not found");
         if (!preference.isActive) {
@@ -257,8 +294,9 @@ export class TransactionService {
         if (paymentMethod.requiresCard && !cardId) {
             throw new BusinessRuleError(ErrorCode.cardRequired, "Informe o cartão para pagamentos no crédito ou no débito.");
         }
-        if (cardId) {
-            const card = await this.cardsRepository.loadById(cardId);
+        let card: Cards | null = null;
+        if (cardId && paymentMethod.requiresCard) {
+            card = await this.cardsRepository.loadById(cardId);
             if (!card) throw new NotFoundError(ErrorCode.cardNotFound, "Card does not exist!");
             if (card.userId !== userId) throw new ForbiddenError();
 
@@ -270,7 +308,40 @@ export class TransactionService {
             }
         }
 
-        return paymentMethod;
+        return {paymentMethod, card};
+    }
+
+    private resolveExpenseAccount(card: Cards | null, requestedAccountId: number | undefined): number {
+        if (card?.bankAccountId) {
+            if (requestedAccountId !== undefined && requestedAccountId !== card.bankAccountId) {
+                throw new BusinessRuleError(ErrorCode.cardAccountMismatch, "Esse cartão está vinculado a outra conta.");
+            }
+            return card.bankAccountId;
+        }
+        if (requestedAccountId === undefined) {
+            throw new BusinessRuleError(ErrorCode.bankAccountRequired, "Informe a conta do gasto.");
+        }
+        return requestedAccountId;
+    }
+
+    private async ensureWithinLimit(
+        userId: number,
+        card: Cards,
+        pendingCredit: Pick<Transaction, "amount">[],
+        excludeTransactionId?: number,
+    ): Promise<void> {
+        if (card.limit == null || pendingCredit.length === 0) return;
+
+        const used = (await this.transactionRepository.sumPendingCreditByCard(userId, excludeTransactionId)).get(card.id) ?? 0;
+        const purchase = pendingCredit.reduce((total, item) => total + toCents(item.amount), 0);
+        const available = toCents(card.limit) - used;
+        if (purchase > available) {
+            const format = (cents: number) => (cents / 100).toLocaleString("pt-BR", {style: "currency", currency: "BRL"});
+            throw new BusinessRuleError(
+                ErrorCode.cardLimitExceeded,
+                `A compra passa do limite disponível do cartão (${format(Math.max(available, 0))}).`,
+            );
+        }
     }
 
     private ensureInstallmentsAllowed(paymentMethod: PaymentMethods): void {

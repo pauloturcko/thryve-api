@@ -6,6 +6,7 @@ import { TransactionTypeEnum } from "../enum/transaction-type-enum";
 import { TransactionStatusEnum } from "../enum/transaction-status-enum";
 import { IncomeKindEnum } from "../enum/income-kind-enum";
 import { ExpenseKindEnum } from "../enum/expense-kind-enum";
+import { PaymentMethodEnum } from "../enum/payment-method-enum";
 
 type TransactionFilters = {
     startDate?: string,
@@ -64,6 +65,23 @@ export class TransactionRepository {
 
     async hasLinkedTransactions(id: number): Promise<boolean> {
         return await this.repository.exists({where: {linkedTransactionId: id}})
+    }
+
+    async sumPendingCreditByCard(userId: number, excludeTransactionId?: number): Promise<Map<number, number>> {
+        const query = this.repository
+            .createQueryBuilder("transaction")
+            .select("transaction.card_id", "cardId")
+            .addSelect("COALESCE(SUM(ROUND(transaction.amount * 100)), 0)", "cents")
+            .where("transaction.user_id = :userId", {userId})
+            .andWhere("transaction.type = :type", {type: TransactionTypeEnum.expense})
+            .andWhere("transaction.payment_method_id = :credit", {credit: PaymentMethodEnum.creditCard})
+            .andWhere("transaction.status = :pending", {pending: TransactionStatusEnum.pending})
+            .andWhere("transaction.card_id IS NOT NULL")
+            .groupBy("transaction.card_id");
+        if (excludeTransactionId !== undefined) query.andWhere("transaction.id <> :excludeTransactionId", {excludeTransactionId});
+
+        const rows = await query.getRawMany<{cardId: number, cents: string}>();
+        return new Map(rows.map((row) => [Number(row.cardId), Number(row.cents)]));
     }
 
     async existsWhere(where: FindOptionsWhere<Transaction>): Promise<boolean> {

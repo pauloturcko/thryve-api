@@ -10,6 +10,7 @@ export interface CreateCardDto {
     expiresIn: Date;
     limit: string | null;
     lastFourDigits: string;
+    bankAccountId: number | null;
 }
 
 export type UpdateCardDTO = Partial<CreateCardDto> & {

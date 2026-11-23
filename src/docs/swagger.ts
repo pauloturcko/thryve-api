@@ -237,6 +237,12 @@ export const swaggerDocument = {
             description: "4 últimos dígitos do cartão",
             example: "1234",
           },
+          bankAccountId: {
+            type: "integer",
+            nullable: true,
+            description: "Conta vinculada (opcional). Uma conta pode ter vários cartões. No débito, o gasto sai dela automaticamente; no crédito, identifica a instituição",
+            example: 1,
+          },
         },
       },
       CardUpdateInput: {
@@ -279,6 +285,12 @@ export const swaggerDocument = {
             type: "string",
             description: "Últimos 4 dígitos (Opcional)",
             example: "5678",
+          },
+          bankAccountId: {
+            type: "integer",
+            nullable: true,
+            description: "Nova conta vinculada, ou null para desvincular (Opcional). Vale só para gastos novos: os já lançados continuam na conta em que foram feitos",
+            example: 2,
           },
         },
       },
@@ -753,7 +765,7 @@ export const swaggerDocument = {
       },
       ExpenseRegisterInput: {
         type: "object",
-        required: ["expenseKind", "categoryId", "description", "paymentMethodId", "bankAccountId", "amount", "date"],
+        required: ["expenseKind", "categoryId", "description", "paymentMethodId", "amount", "date"],
         properties: {
           expenseKind: {
             type: "integer",
@@ -778,7 +790,9 @@ export const swaggerDocument = {
           },
           bankAccountId: {
             type: "integer",
-            description: "ID da conta do usuário de onde o valor sai",
+            description:
+              "Conta do gasto. Obrigatória, exceto quando o cartão tem conta vinculada: aí a conta é a do cartão " +
+              "(outra conta responde 422 CARD_ACCOUNT_MISMATCH). Só Pix, boleto, dinheiro e débito pagos descontam do saldo; crédito nunca desconta",
             example: 1,
           },
           cardId: {
@@ -839,7 +853,7 @@ export const swaggerDocument = {
           paymentMethodId: { type: "integer", description: "Nova forma de pagamento (Opcional)", example: 1 },
           bankAccountId: {
             type: "integer",
-            description: "Nova conta (Opcional). Se o gasto for pago, o valor volta para a conta antiga e sai da nova",
+            description: "Nova conta (Opcional). Com cartão vinculado, só a conta do cartão é aceita. Se o gasto for pago (e não for crédito), o valor volta para a conta antiga e sai da nova",
             example: 2,
           },
           cardId: { type: "integer", nullable: true, description: "Novo cartão (Opcional)", example: 2 },
@@ -1147,6 +1161,9 @@ export const swaggerDocument = {
       get: {
         tags: ["Cartões"],
         summary: "Listar todos os cartões do usuário logado",
+        description:
+          "Cada cartão traz bankAccount (conta vinculada, ou null), usedLimit (compras no crédito ainda pendentes) e " +
+          "availableLimit (limit - usedLimit). Cartão só de débito tem os dois como null",
         security: [{ bearerAuth: [] }],
         responses: {
           200: {

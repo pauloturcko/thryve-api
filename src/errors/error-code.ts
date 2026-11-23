@@ -29,6 +29,8 @@ export enum ErrorCode {
     cardRequired = "CARD_REQUIRED",
     cardDebitOnly = "CARD_DEBIT_ONLY",
     cardCreditOnly = "CARD_CREDIT_ONLY",
+    cardAccountMismatch = "CARD_ACCOUNT_MISMATCH",
+    cardLimitExceeded = "CARD_LIMIT_EXCEEDED",
 
     // Contas bancárias
     bankAccountAlreadyExists = "BANK_ACCOUNT_ALREADY_EXISTS",

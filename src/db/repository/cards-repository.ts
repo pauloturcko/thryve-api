@@ -32,7 +32,7 @@ export class CardsRepository {
     }
 
     async loadAll(userId: number): Promise<Cards[]> {
-        return await this.repository.find({where: {userId}});
+        return await this.repository.find({where: {userId}, relations: {bankAccount: true}});
     }
 
     async loadById(id: number): Promise<Cards | null> {
