@@ -54,6 +54,7 @@ export enum ErrorCode {
     expenseNotFound = "EXPENSE_NOT_FOUND",
     expenseHasRefunds = "EXPENSE_HAS_REFUNDS",
     installmentsRequireCredit = "INSTALLMENTS_REQUIRE_CREDIT",
+    expenseDraftNotFound = "EXPENSE_DRAFT_NOT_FOUND",
 
     // Metas
     goalAlreadyExists = "GOAL_ALREADY_EXISTS",
