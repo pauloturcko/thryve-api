@@ -11,7 +11,7 @@ const CREDIT_EXPENSES_COUNTED = `
     GROUP BY t.bank_account_id
 `;
 
-export class RefundPaidCreditExpensesToBalance1795400000200 implements MigrationInterface {
+export class RefundPaidCreditExpensesToBalance1795400000500 implements MigrationInterface {
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`

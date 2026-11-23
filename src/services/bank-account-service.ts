@@ -12,7 +12,7 @@ export class BankAccountService {
     private investmentRepository = new InvestmentRepository();
 
     async create(userId: number, data: unknown) {
-        const {name, accountType, balance} = createBankAccountValidator.parse(data)
+        const {name, accountType, balance, balanceDate} = createBankAccountValidator.parse(data)
 
         const slug = slugify(name)
 
@@ -31,7 +31,8 @@ export class BankAccountService {
             name,
             slug,
             accountType,
-            balance
+            balance,
+            balanceDate
         })
     }
 

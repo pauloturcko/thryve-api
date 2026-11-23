@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { EntityManager } from "typeorm";
 import { monthRange, toDateString } from "../utils/date";
 import { appDataSource } from "../db/config/data-source";
 import { BankAccount } from "../db/models/bank-account";
@@ -48,7 +49,7 @@ const splitAmount = (amount: string, installments: number) => {
 const countsInBalance = (transaction: Pick<Transaction, "status" | "date" | "paymentMethodId">, account: BankAccount) =>
     transaction.status === TransactionStatusEnum.paid
     && transaction.paymentMethodId !== PaymentMethodEnum.creditCard
-    && transaction.date >= toDateString(account.createdAt);
+    && transaction.date >= account.balanceDate;
 
 const toCents = (amount: string | number) => Math.round(Number(amount) * 100);
 
@@ -136,7 +137,12 @@ export class TransactionService {
         await this.saveChange(userId, current, null, (repository) => repository.delete(id));
     }
 
-    async createExpense(userId: number, data: unknown): Promise<Transaction[]> {
+    // `inSameTransaction` roda junto do insert: se falhar, o gasto também não é criado (usado ao confirmar um rascunho).
+    async createExpense(
+        userId: number,
+        data: unknown,
+        inSameTransaction?: (manager: EntityManager) => Promise<void>,
+    ): Promise<Transaction[]> {
         const parsed = createExpenseValidator.parse(data);
 
         await this.ensureUserHasAccount(userId);
@@ -181,6 +187,8 @@ export class TransactionService {
                     await bankAccountRepository.adjustBalance(account.id, balanceEffect(transaction));
                 }
             }
+
+            await inSameTransaction?.(manager);
 
             return transactions;
         });

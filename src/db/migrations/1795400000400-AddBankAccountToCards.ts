@@ -1,6 +1,6 @@
 import { MigrationInterface, QueryRunner, TableColumn, TableForeignKey, TableIndex } from "typeorm";
 
-export class AddBankAccountToCards1795400000100 implements MigrationInterface {
+export class AddBankAccountToCards1795400000400 implements MigrationInterface {
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.addColumn("cards", new TableColumn({

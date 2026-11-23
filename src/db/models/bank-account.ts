@@ -24,6 +24,10 @@ export class BankAccount {
     balance: string;
     // O TypeORM devolve type: "numerci" como string, se tipar como number perderia a precisao na conversao
 
+    // Data em que o saldo informado vale (data local de quem cadastrou). Lançamentos a partir dela mexem no saldo.
+    @Column({name: "balance_date", type: "date"})
+    balanceDate: string;
+
     @CreateDateColumn({name: "created_at", type: "timestamp"})
     createdAt: Date;
 
