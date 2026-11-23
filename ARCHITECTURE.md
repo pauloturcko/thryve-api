@@ -99,6 +99,21 @@ Fluxo: [`ReportService`](src/services/report-service.ts) valida filtros → [`re
 - **Deploy (Dockerfile)**: o Railway monta a API pelo [`Dockerfile`](Dockerfile), baseado na imagem oficial do Playwright, que já traz o Chromium e as bibliotecas de sistema. A imagem padrão de Node do Railway não tem navegador, e aí as rotas de relatório respondem 500 `REPORT_GENERATION_FAILED` (log: `browserType.launch: Executable doesn't exist`). **A tag da imagem precisa ser a mesma versão do pacote `playwright`**, fixada sem `^` no `package.json`: ao atualizar um, atualizar o outro. Com `logging: true`, o INSERT do relatório também loga os bytes do PDF, como já acontece com a foto.
 - **Idioma**: o PDF sai em pt-BR, com a moeda da preferência do usuário. Traduzir exige passar o idioma das preferências para o template.
 
+## Fluxo de branches, CI e deploy
+
+- **`main` = produção, `developer` = teste.** Toda feature/fix sai de uma branch própria e abre PR para a `developer` (é a branch padrão do repositório, então a PR já nasce apontando para ela). Quando a `developer` acumula o que deve ir para produção, abre-se uma PR `developer` → `main`: essa é a "versão".
+- **PR para a `main` só vem da `developer`** (ou de `hotfix/*`, para correção urgente em produção). O workflow [`release-source.yml`](.github/workflows/release-source.yml) falha em qualquer outra origem, e o ruleset da `main` exige esse check. Depois de um hotfix, abrir PR `main` → `developer` para a correção não se perder na próxima versão.
+- **Versão sempre com "Create a merge commit"**, nunca squash: com squash a `main` ganha um commit novo que a `developer` não tem, e a próxima PR de versão repete commits ou dá conflito. O ruleset da `main` só permite merge commit.
+- **CI** ([`ci.yml`](.github/workflows/ci.yml)) roda em toda PR e todo push para `developer`/`main`: `npm ci`, build (typecheck) e **todas as migrations aplicadas num Postgres vazio**, para uma migration quebrada não chegar em teste nem em produção. O check `ci` é obrigatório nas duas branches.
+- **Rulesets no GitHub** (Settings → Rules): `main` e `developer` não aceitam push direto, force push nem exclusão; só PR com o check `ci` verde (e `origem-da-pr` na `main`).
+- **Deploy**: o Railway publica a `main` no ambiente `production`. O ambiente de teste é um environment separado no Railway apontando para a branch `developer`, com banco e variáveis próprios (ver o PR que criou este fluxo).
+
+## Saldo da conta e `balance_date`
+
+- O saldo informado no cadastro da conta vale numa data: `bank_account.balance_date`. Lançamentos dessa data em diante mexem no saldo; os anteriores já estão nele (`countsInBalance` em [transaction-service.ts](src/services/transaction-service.ts) e [investment-service.ts](src/services/investment-service.ts)).
+- **Por que não `created_at`**: o Postgres grava `created_at` em UTC. Uma conta cadastrada depois das 21h de Brasília ficava com a data do dia seguinte, e os gastos/rendas do próprio dia deixavam de contar no saldo. A `balance_date` é a data local de quem cadastra (o front manda; sem ela, hoje em `America/Sao_Paulo`). Contas antigas receberam `created_at` convertido para o horário de Brasília.
+- Não pode ser editada: mudar a data mudaria quais lançamentos já estão no saldo, e ele teria que ser recalculado.
+
 ## Rascunhos de gasto (app de voz)
 
 O app iOS registra gastos falados. A fala nem sempre diz tudo (conta, categoria, tipo), então o que chega vira um **rascunho** em `expense_drafts`, revisado depois no dashboard. Rotas em [`expense-draft-routes.ts`](src/http/routes/expense-draft-routes.ts).

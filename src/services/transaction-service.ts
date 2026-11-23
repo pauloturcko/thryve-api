@@ -46,7 +46,7 @@ const splitAmount = (amount: string, installments: number) => {
 };
 
 const countsInBalance = (transaction: Pick<Transaction, "status" | "date">, account: BankAccount) =>
-    transaction.status === TransactionStatusEnum.paid && transaction.date >= toDateString(account.createdAt);
+    transaction.status === TransactionStatusEnum.paid && transaction.date >= account.balanceDate;
 
 const balanceEffect = (transaction: Pick<Transaction, "type" | "amount">) =>
     transaction.type === TransactionTypeEnum.income ? Number(transaction.amount) : -Number(transaction.amount);

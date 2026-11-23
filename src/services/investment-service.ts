@@ -46,7 +46,7 @@ const investmentEffectInCents = ({type, amount}: Pick<MovementValues, "type" | "
     type === InvestmentMovementTypeEnum.withdrawal ? -toCents(amount) : toCents(amount);
 
 const countsInBalance = (movement: MovementValues, account: BankAccount) =>
-    balanceEffect(movement) !== 0 && movement.date >= toDateString(account.createdAt);
+    balanceEffect(movement) !== 0 && movement.date >= account.balanceDate;
 
 const currentAmountInCents = (movements: MovementValues[]) =>
     movements.reduce((total, movement) => total + investmentEffectInCents(movement), 0);
