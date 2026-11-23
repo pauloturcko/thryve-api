@@ -55,6 +55,10 @@ const cardFieldsValidator = z.object({
     lastFourDigits: z
         .string()
         .regex(/^\d{4}$/, "Cartão inválido"),
+
+    bankAccountId: idValidator
+        .nullable()
+        .optional(),
 });
 
 export const createCardValidator = cardFieldsValidator

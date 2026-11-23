@@ -1,5 +1,6 @@
 import {Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique, UpdateDateColumn} from "typeorm";
 import {Users} from "./users";
+import {BankAccount} from "./bank-account";
 
 @Entity("cards")
 @Unique("UQ_cards_user_slug_last_four_digits", ["userId", "slug", "lastFourDigits"])
@@ -31,6 +32,9 @@ export class Cards {
     @Column({name: "last_four_digits", type: "char", length: 4})
     lastFourDigits: string;
 
+    @Column({name: "bank_account_id", type: "int", nullable: true})
+    bankAccountId: number | null;
+
     @CreateDateColumn({name: "created_at", type: "timestamp"})
     createdAt: Date;
 
@@ -40,4 +44,8 @@ export class Cards {
     @ManyToOne(() => Users, (cards) => cards.cards, {onDelete: "CASCADE"})
     @JoinColumn({name: "user_id"})
     owner: Users
+
+    @ManyToOne(() => BankAccount, {onDelete: "SET NULL"})
+    @JoinColumn({name: "bank_account_id"})
+    bankAccount: BankAccount | null;
 }

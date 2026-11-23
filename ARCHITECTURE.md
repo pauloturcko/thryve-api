@@ -124,6 +124,15 @@ O app iOS registra gastos falados. A fala nem sempre diz tudo (conta, categoria,
 - **FKs com `ON DELETE SET NULL`**: apagar a categoria, a conta ou o cartão não é barrado por um rascunho, só limpa o campo.
 - `GET /expense-drafts/context` devolve cartões, contas, categorias de gasto e formas de pagamento ativas: é o que o app (e a futura extração da frase) usa para ligar "cartão do C6" a um id.
 
+## Cartões, contas e saldo
+
+- **Cartão pode ter uma conta vinculada** (`cards.bank_account_id`, opcional). Uma conta pode ter vários cartões; um cartão, no máximo uma conta. Excluir a conta só desfaz o vínculo (`ON DELETE SET NULL`).
+- **Conta do gasto**: em Pix, boleto e dinheiro o usuário escolhe a conta. Em débito e crédito, o cartão vem primeiro; se ele tem conta vinculada, a conta do gasto é a do cartão (o front trava o campo e a API recusa outra com 422 `CARD_ACCOUNT_MISMATCH`). Sem vínculo, o usuário escolhe.
+- **Trocar o vínculo de um cartão vale só para gastos novos.** A conta só é recalculada quando o gasto muda de cartão; editar outro campo de um gasto antigo mantém a conta em que ele foi lançado, para o saldo do passado não mudar.
+- **Crédito não mexe no saldo**, nem quando a compra está "paga": ela vai para a fatura do cartão. Só Pix, boleto, dinheiro e débito pagos descontam da conta (`countsInBalance` no [`TransactionService`](src/services/transaction-service.ts)). A fatura, com o lançamento automático do pagamento no mês seguinte, ainda não existe.
+- **Limite**: usado = compras no crédito ainda pendentes no cartão; disponível = limite − usado. Marcar uma compra no crédito como paga (quitada na fatura) libera o limite sem mexer no saldo. Compra acima do disponível é bloqueada (422 `CARD_LIMIT_EXCEEDED`); no parcelado, a soma de todas as parcelas pendentes ocupa o limite de uma vez, como no banco.
+- **Correção dos dados antigos**: até esta mudança, crédito pago descontava do saldo. A migration `RefundPaidCreditExpensesToBalance` devolve ao saldo exatamente o que a regra antiga tinha descontado, senão esses valores ficariam descontados para sempre (editar ou excluir o gasto não devolveria nada, porque a regra nova não o conta). Ela precisa rodar junto com o deploy, antes de lançar gastos novos no crédito como pagos: os lançados com a regra nova nunca foram descontados e também seriam somados.
+
 ## Validação (Zod) e normalização de dados
 
 - **O `.parse()` fica no Service, nunca no Controller.** O service recebe `data: unknown` e valida na primeira linha; o controller só repassa `req.body`/`req.params`. Assim qualquer chamador do service (rota hoje; job, script ou teste amanhã) passa pela mesma validação sem precisar lembrar. Nas primeiras versões (#0001–#0003) o parse ficava no controller; foi movido de propósito no #0004/#0005.

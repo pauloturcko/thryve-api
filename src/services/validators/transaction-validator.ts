@@ -93,7 +93,8 @@ export const createExpenseValidator = z.object({
 
     paymentMethodId: idValidator,
 
-    bankAccountId: idValidator,
+    // Opcional só quando o cartão tem conta vinculada: aí a conta vem do cartão (regra no service).
+    bankAccountId: idValidator.optional(),
 
     cardId: idValidator
         .nullable()
