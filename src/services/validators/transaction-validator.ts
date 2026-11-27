@@ -5,7 +5,7 @@ import {TransactionStatusEnum} from "../../db/enum/transaction-status-enum";
 import {dateValidator, idValidator, moneyValidator} from "./common-validator";
 import {ValidationIssueCode} from "../../errors";
 
-const amountValidator = moneyValidator("Valor inválido")
+export const amountValidator = moneyValidator("Valor inválido")
     .refine((value) => value > 0, {
         message: "O valor deve ser maior que zero",
         params: {code: ValidationIssueCode.amountNotPositive},
@@ -93,7 +93,8 @@ export const createExpenseValidator = z.object({
 
     paymentMethodId: idValidator,
 
-    bankAccountId: idValidator,
+    // Opcional só quando o cartão tem conta vinculada: aí a conta vem do cartão (regra no service).
+    bankAccountId: idValidator.optional(),
 
     cardId: idValidator
         .nullable()

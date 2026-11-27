@@ -237,6 +237,12 @@ export const swaggerDocument = {
             description: "4 últimos dígitos do cartão",
             example: "1234",
           },
+          bankAccountId: {
+            type: "integer",
+            nullable: true,
+            description: "Conta vinculada (opcional). Uma conta pode ter vários cartões. No débito, o gasto sai dela automaticamente; no crédito, identifica a instituição",
+            example: 1,
+          },
         },
       },
       CardUpdateInput: {
@@ -280,6 +286,12 @@ export const swaggerDocument = {
             description: "Últimos 4 dígitos (Opcional)",
             example: "5678",
           },
+          bankAccountId: {
+            type: "integer",
+            nullable: true,
+            description: "Nova conta vinculada, ou null para desvincular (Opcional). Vale só para gastos novos: os já lançados continuam na conta em que foram feitos",
+            example: 2,
+          },
         },
       },
       CardDeleteInput: {
@@ -314,6 +326,13 @@ export const swaggerDocument = {
             type: "string",
             description: "Saldo inicial (padrão 0.00). Aceita negativo e os formatos '5000.00', '5.000,00' ou '5,000.00'",
             example: "1500.00",
+          },
+          balanceDate: {
+            type: "string",
+            example: "2026-11-22",
+            description:
+              "Data em que o saldo informado vale (AAAA-MM-DD), na data local de quem cadastra (opcional; padrão: hoje no horário de Brasília). " +
+              "Lançamentos a partir dela mexem no saldo; os anteriores já estão nele. Não pode ser alterada depois",
           },
         },
       },
@@ -753,7 +772,7 @@ export const swaggerDocument = {
       },
       ExpenseRegisterInput: {
         type: "object",
-        required: ["expenseKind", "categoryId", "description", "paymentMethodId", "bankAccountId", "amount", "date"],
+        required: ["expenseKind", "categoryId", "description", "paymentMethodId", "amount", "date"],
         properties: {
           expenseKind: {
             type: "integer",
@@ -778,7 +797,9 @@ export const swaggerDocument = {
           },
           bankAccountId: {
             type: "integer",
-            description: "ID da conta do usuário de onde o valor sai",
+            description:
+              "Conta do gasto. Obrigatória, exceto quando o cartão tem conta vinculada: aí a conta é a do cartão " +
+              "(outra conta responde 422 CARD_ACCOUNT_MISMATCH). Só Pix, boleto, dinheiro e débito pagos descontam do saldo; crédito nunca desconta",
             example: 1,
           },
           cardId: {
@@ -839,7 +860,7 @@ export const swaggerDocument = {
           paymentMethodId: { type: "integer", description: "Nova forma de pagamento (Opcional)", example: 1 },
           bankAccountId: {
             type: "integer",
-            description: "Nova conta (Opcional). Se o gasto for pago, o valor volta para a conta antiga e sai da nova",
+            description: "Nova conta (Opcional). Com cartão vinculado, só a conta do cartão é aceita. Se o gasto for pago (e não for crédito), o valor volta para a conta antiga e sai da nova",
             example: 2,
           },
           cardId: { type: "integer", nullable: true, description: "Novo cartão (Opcional)", example: 2 },
@@ -864,6 +885,124 @@ export const swaggerDocument = {
             description: "ID do gasto a ser removido. No parcelado, remove só essa parcela",
             example: 1,
           },
+        },
+      },
+      ExpenseDraftContextResponse: {
+        type: "object",
+        description: "O que o app precisa para ligar o que foi falado (\"cartão do C6\", \"mercado\") a um id",
+        required: ["cards", "bankAccounts", "categories", "paymentMethods"],
+        properties: {
+          cards: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["id", "name", "lastFourDigits", "cardType"],
+              properties: {
+                id: { type: "integer", example: 1 },
+                name: { type: "string", example: "C6 Bank" },
+                lastFourDigits: { type: "string", example: "4321" },
+                cardType: { type: "integer", description: "Mesmo enum de /cards", example: 1 },
+              },
+            },
+          },
+          bankAccounts: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["id", "name", "accountType"],
+              properties: {
+                id: { type: "integer", example: 1 },
+                name: { type: "string", example: "Conta C6" },
+                accountType: { type: "integer", description: "Mesmo enum de /bank-accounts", example: 0 },
+              },
+            },
+          },
+          categories: {
+            type: "array",
+            description: "Só categorias de gasto",
+            items: {
+              type: "object",
+              required: ["id", "name", "icon", "color"],
+              properties: {
+                id: { type: "integer", example: 1 },
+                name: { type: "string", example: "Mercado" },
+                icon: { type: "string", example: "shopping-cart" },
+                color: { type: "string", example: "#14b8a6" },
+              },
+            },
+          },
+          paymentMethods: {
+            type: "array",
+            description: "Só as formas de pagamento ativas nas preferências do usuário",
+            items: {
+              type: "object",
+              required: ["id", "name", "slug", "requiresCard"],
+              properties: {
+                id: { type: "integer", example: 5 },
+                name: { type: "string", example: "Cartão de Crédito" },
+                slug: { type: "string", example: "credit_card" },
+                requiresCard: { type: "boolean", example: true },
+              },
+            },
+          },
+        },
+      },
+      ExpenseDraftInput: {
+        type: "object",
+        description: "Só a frase é obrigatória. O resto é o que deu para entender dela",
+        required: ["transcript"],
+        properties: {
+          transcript: { type: "string", description: "A frase falada, como foi transcrita (até 500 caracteres)", example: "gastei 10 reais no mercado no cartão do C6" },
+          description: { type: "string", nullable: true, example: "Mercado" },
+          amount: { type: "string", nullable: true, description: "Aceita formato BR ou US", example: "10,00" },
+          date: { type: "string", format: "date", nullable: true, example: "2026-11-22" },
+          expenseKind: { type: "integer", enum: [0, 1], nullable: true, description: "0 = fixo, 1 = variável" },
+          categoryId: { type: "integer", nullable: true, example: 1 },
+          bankAccountId: { type: "integer", nullable: true, example: 1 },
+          paymentMethodId: { type: "integer", nullable: true, example: 5 },
+          cardId: { type: "integer", nullable: true, example: 1 },
+        },
+      },
+      ExpenseDraftResponse: {
+        type: "object",
+        required: ["id", "transcript", "createdAt"],
+        properties: {
+          id: { type: "integer", example: 1 },
+          transcript: { type: "string", example: "gastei 10 reais no mercado no cartão do C6" },
+          description: { type: "string", nullable: true, example: "Mercado" },
+          amount: { type: "string", nullable: true, example: "10.00" },
+          date: { type: "string", format: "date", nullable: true, example: "2026-11-22" },
+          expenseKind: { type: "integer", enum: [0, 1], nullable: true },
+          categoryId: { type: "integer", nullable: true },
+          bankAccountId: { type: "integer", nullable: true },
+          paymentMethodId: { type: "integer", nullable: true },
+          cardId: { type: "integer", nullable: true },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      ExpenseDraftConfirmInput: {
+        type: "object",
+        description: "draftId + os campos de ExpenseRegisterInput. O que não vier é completado com o que o rascunho já tem",
+        required: ["draftId"],
+        properties: {
+          draftId: { type: "integer", example: 1 },
+          expenseKind: { type: "integer", enum: [0, 1], example: 1 },
+          bankAccountId: { type: "integer", example: 1 },
+          categoryId: { type: "integer", example: 1 },
+          paymentMethodId: { type: "integer", example: 5 },
+          cardId: { type: "integer", nullable: true, example: 1 },
+          description: { type: "string", example: "Mercado" },
+          amount: { type: "string", example: "10.00" },
+          date: { type: "string", format: "date", example: "2026-11-22" },
+          status: { type: "integer", enum: [0, 1], description: "0 = pendente (não pago), 1 = pago" },
+        },
+      },
+      ExpenseDraftDeleteInput: {
+        type: "object",
+        required: ["id"],
+        properties: {
+          id: { type: "integer", description: "ID do rascunho a descartar", example: 1 },
         },
       },
     },
@@ -1147,6 +1286,9 @@ export const swaggerDocument = {
       get: {
         tags: ["Cartões"],
         summary: "Listar todos os cartões do usuário logado",
+        description:
+          "Cada cartão traz bankAccount (conta vinculada, ou null), usedLimit (compras no crédito ainda pendentes) e " +
+          "availableLimit (limit - usedLimit). Cartão só de débito tem os dois como null",
         security: [{ bearerAuth: [] }],
         responses: {
           200: {
@@ -2214,6 +2356,86 @@ export const swaggerDocument = {
           409: {
             description: "O gasto tem reembolsos vinculados",
           },
+        },
+      },
+    },
+
+    // ------------------ ROTAS DE RASCUNHOS DE GASTO (APP DE VOZ) ------------------
+    "/expense-drafts/context": {
+      get: {
+        tags: ["Rascunhos de Gasto"],
+        summary: "Cartões, contas, categorias de gasto e formas de pagamento ativas do usuário",
+        description: "Usado pelo app de voz para transformar o que foi falado em ids",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: "Contexto do usuário", content: { "application/json": { schema: { $ref: "#/components/schemas/ExpenseDraftContextResponse" } } } },
+          401: { description: "Não autorizado" },
+        },
+      },
+    },
+    "/expense-drafts/register": {
+      post: {
+        tags: ["Rascunhos de Gasto"],
+        summary: "Salvar um gasto falado como rascunho, para revisar depois",
+        description: "Rascunho não entra em saldo, relatórios nem listagem de gastos. Os ids enviados precisam ser do usuário; combinações (ex.: cartão de débito no crédito) só são conferidas ao confirmar",
+        security: [{ bearerAuth: [] }],
+        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ExpenseDraftInput" } } } },
+        responses: {
+          201: {
+            description: "Rascunho salvo",
+            content: { "application/json": { schema: { type: "object", required: ["draft"], properties: { draft: { $ref: "#/components/schemas/ExpenseDraftResponse" } } } } },
+          },
+          400: { description: "Erro de validação (frase ausente, valor inválido...)" },
+          401: { description: "Não autorizado" },
+          403: { description: "Categoria, conta ou cartão de outro usuário" },
+          404: { description: "Categoria, conta, cartão ou forma de pagamento não encontrado" },
+          422: { description: "Categoria que não é de gasto ou forma de pagamento desativada" },
+        },
+      },
+    },
+    "/expense-drafts/user-drafts": {
+      get: {
+        tags: ["Rascunhos de Gasto"],
+        summary: "Rascunhos do usuário logado, mais recentes primeiro",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: "Lista de rascunhos",
+            content: { "application/json": { schema: { type: "object", required: ["drafts"], properties: { drafts: { type: "array", items: { $ref: "#/components/schemas/ExpenseDraftResponse" } } } } } },
+          },
+          401: { description: "Não autorizado" },
+        },
+      },
+    },
+    "/expense-drafts/confirm": {
+      post: {
+        tags: ["Rascunhos de Gasto"],
+        summary: "Transformar o rascunho em gasto",
+        description: "Mesmas regras de /expenses/register. O gasto é criado e o rascunho apagado na mesma transação. Se faltar algo, responde 400 e o rascunho continua lá",
+        security: [{ bearerAuth: [] }],
+        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ExpenseDraftConfirmInput" } } } },
+        responses: {
+          201: { description: "Gasto registrado e rascunho removido" },
+          400: { description: "Erro de validação: algum campo obrigatório do gasto ainda falta" },
+          401: { description: "Não autorizado" },
+          403: { description: "O rascunho, a conta, a categoria ou o cartão pertence a outro usuário" },
+          404: { description: "Rascunho (EXPENSE_DRAFT_NOT_FOUND), conta, categoria, forma de pagamento ou cartão não encontrado" },
+          422: { description: "Mesmas regras de negócio de /expenses/register" },
+        },
+      },
+    },
+    "/expense-drafts/delete": {
+      delete: {
+        tags: ["Rascunhos de Gasto"],
+        summary: "Descartar um rascunho",
+        security: [{ bearerAuth: [] }],
+        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ExpenseDraftDeleteInput" } } } },
+        responses: {
+          200: { description: "Rascunho descartado" },
+          400: { description: "ID ausente ou inválido" },
+          401: { description: "Não autorizado" },
+          403: { description: "O rascunho pertence a outro usuário" },
+          404: { description: "Rascunho não encontrado (EXPENSE_DRAFT_NOT_FOUND)" },
         },
       },
     },

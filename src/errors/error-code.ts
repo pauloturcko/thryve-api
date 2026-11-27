@@ -29,6 +29,8 @@ export enum ErrorCode {
     cardRequired = "CARD_REQUIRED",
     cardDebitOnly = "CARD_DEBIT_ONLY",
     cardCreditOnly = "CARD_CREDIT_ONLY",
+    cardAccountMismatch = "CARD_ACCOUNT_MISMATCH",
+    cardLimitExceeded = "CARD_LIMIT_EXCEEDED",
 
     // Contas bancárias
     bankAccountAlreadyExists = "BANK_ACCOUNT_ALREADY_EXISTS",
@@ -54,6 +56,7 @@ export enum ErrorCode {
     expenseNotFound = "EXPENSE_NOT_FOUND",
     expenseHasRefunds = "EXPENSE_HAS_REFUNDS",
     installmentsRequireCredit = "INSTALLMENTS_REQUIRE_CREDIT",
+    expenseDraftNotFound = "EXPENSE_DRAFT_NOT_FOUND",
 
     // Metas
     goalAlreadyExists = "GOAL_ALREADY_EXISTS",
